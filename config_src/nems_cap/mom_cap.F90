@@ -384,6 +384,7 @@ module mom_cap_mod
 #ifdef MOM6_CAP
   use ocean_model_mod,          only: ice_ocean_boundary_type
   use MOM_grid,                 only: ocean_grid_type
+  use MOM_restart,              only: save_restart
 #else
   use ocean_types_mod,          only: ice_ocean_boundary_type, ocean_grid_type
 #endif
@@ -1513,7 +1514,16 @@ module mom_cap_mod
           timestamp = date_to_string(time_restart_current)
           call ESMF_LogWrite("MOM: Writing restart at "//trim(timestamp), ESMF_LOGMSG_INFO, rc=dbrc)
           write(*,*) 'calling ocean_model_restart'
+#ifdef MOM5_CAP
           call ocean_model_restart(Ocean_state, timestamp)
+#endif
+#ifdef MOM6_CAP
+! Note in order to write out intermediate restart file, private for "ocean_state_type" has been removed
+! Note for MOM6 version earlier than 20180228, use "Ocean_state%MOM_CSp%restart_CSp"                         
+          call save_restart('./RESTART/', Ocean_state%Time, Ocean_state%grid, &
+               Ocean_state%restart_CSp, .false., &
+               filename=timestamp(1:8)//timestamp(10:13)//'_MOM.res.nc', GV=Ocean_state%GV)                   
+#endif
       endif
     endif
 
