@@ -297,6 +297,19 @@ subroutine MOM_wave_interface_init(time,G,GV,param_file, CS, diag )
            "Filename of surface Stokes drift input band data.", default="StkSpec.nc")
     case (COUPLER_STRING)!Reserved for coupling
       DataSource = Coupler
+      !call get_param(param_file,mdl,"SURFBAND_NB",NumBands,                 &
+      !   "Prescribe number of wavenumber bands for Stokes drift. \n"//      &
+      !   " Make sure this is consistnet w/ WAVENUMBERS, STOKES_X, and \n"// &
+      !   " STOKES_Y, there are no safety checks in the code.",              &
+      !   units='', default=1)
+      NumBands = 3 !hardcoding this for now
+      allocate( CS%WaveNum_Cen(1:NumBands) ) ; CS%WaveNum_Cen(:)=0.0
+      allocate( CS%STKx0(G%isdB:G%iedB,G%jsd:G%jed,1:NumBands)) ; CS%STKx0(:,:,:) = 0.0
+      allocate( CS%STKy0(G%isd:G%ied,G%jsdB:G%jedB,1:NumBands)) ; CS%STKy0(:,:,:) = 0.0
+      partitionmode=0
+      call get_param(param_file,mdl,"SURFBAND_WAVENUMBERS",CS%WaveNum_Cen,      &
+           "Central wavenumbers for surface Stokes drift bands.",units='rad/m', &
+           default=0.12566)
     case (INPUT_STRING)
       DataSource = Input
       call get_param(param_file,mdl,"SURFBAND_NB",NumBands,                 &

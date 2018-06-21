@@ -1982,8 +1982,12 @@ module mom_cap_mod
   !-----------------------------------------------------------------------------
 
   subroutine MOM_FieldsSetup(ice_ocean_boundary,ocean_sfc)
+
+    USE MOM_wave_interface, only: NumBands,wave_parameters_CS
     type(ice_ocean_boundary_type), intent(in)   :: Ice_ocean_boundary
     type(ocean_public_type), intent(in)         :: Ocean_sfc
+    type(wave_parameters_CS)                    :: wave_CS   !< Wave parameter control structure
+    
     character(len=*),parameter  :: subname='(mom_cap:MOM_FieldsSetup)'
 
   !!! fld_list_add(num, fldlist, stdname, transferOffer, data(optional), shortname(optional))
@@ -2010,6 +2014,19 @@ module mom_cap_mod
     call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_calving_heat_flx", "will provide", data=Ice_ocean_boundary%calving_hflx)
     call fld_list_add(fldsToOcn_num, fldsToOcn, "inst_pres_height_surface" , "will provide", data=Ice_ocean_boundary%p )
     call fld_list_add(fldsToOcn_num, fldsToOcn, "mass_of_overlying_sea_ice", "will provide", data=Ice_ocean_boundary%mi)
+
+! add waves: 
+    if (wave_CS%UseWaves) then 
+      if (NumBands.ne.3) then
+         write(*,*) 'WARNING: NumBands is hardcoded to 3, if not 3 abort!'
+      endif 
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_1", "will provide",  data=wave_CS%STKx0(:,:,1))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_1", "will provide", data=wave_CS%STKy0(:,:,1))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_2", "will provide",  data=wave_CS%STKx0(:,:,2))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_2", "will provide", data=wave_CS%STKy0(:,:,2))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_3", "will provide",  data=wave_CS%STKx0(:,:,3))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_3", "will provide", data=wave_CS%STKy0(:,:,3))
+    endif !UseWaves
 
 !--------- export fields -------------
 
