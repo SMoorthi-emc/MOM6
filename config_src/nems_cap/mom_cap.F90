@@ -266,6 +266,7 @@
 !!        type(ocean_public_type),       pointer :: ocean_public_type_ptr
 !!        type(ocean_state_type),        pointer :: ocean_state_type_ptr
 !!        type(ice_ocean_boundary_type), pointer :: ice_ocean_boundary_type_ptr
+!!        type(wave_parameters_CS),      pointer :: wave_parameters_CS_type_ptr
 !!     end type
 !!
 !!     type ocean_internalstate_wrapper
@@ -389,6 +390,8 @@ module mom_cap_mod
   use ocean_types_mod,          only: ice_ocean_boundary_type, ocean_grid_type
 #endif
 
+  use MOM_wave_interface,       only: wave_parameters_CS
+
   use ESMF
   use NUOPC
   use NUOPC_Model, &
@@ -407,7 +410,8 @@ module mom_cap_mod
     type(ocean_state_type),        pointer :: ocean_state_type_ptr
     type(ice_ocean_boundary_type), pointer :: ice_ocean_boundary_type_ptr
     type(ocean_grid_type),         pointer :: ocean_grid_ptr
-  end type
+    type(wave_parameters_CS),      pointer :: wave_CS_ptr 
+ end type
 
   type ocean_internalstate_wrapper
     type(ocean_internalstate_type), pointer :: ptr
@@ -1316,6 +1320,7 @@ module mom_cap_mod
   !! @param gcomp an ESMF_GridComp object
   !! @param rc return code
   subroutine ModelAdvance(gcomp, rc)
+
     type(ESMF_GridComp)                    :: gcomp
     integer, intent(out)                   :: rc
     
@@ -1332,6 +1337,7 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc          => NULL()
     type (ocean_state_type),       pointer :: Ocean_state        => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
+    type(wave_parameters_CS),      pointer :: wave_CS       => NULL()
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
 
     ! define some time types 
@@ -1344,6 +1350,8 @@ module mom_cap_mod
     integer :: i,j,i1,j1
     real(ESMF_KIND_R8), allocatable        :: ofld(:,:), ocz(:,:), ocm(:,:)
     real(ESMF_KIND_R8), allocatable        :: mmmf(:,:), mzmf(:,:)
+    real(ESMF_KIND_R8), allocatable        :: stkx1(:,:), stkx2(:,:), stkx3(:,:)
+    real(ESMF_KIND_R8), allocatable        :: stky1(:,:), stky2(:,:), stky3(:,:)
     integer :: nc
     real(ESMF_KIND_R8), pointer :: dataPtr_mask(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_mmmf(:,:)
@@ -1353,9 +1361,14 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer :: dataPtr_frazil(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_evap(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_sensi(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr_stkx1(:,:), dataPtr_stky1(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr_stkx2(:,:), dataPtr_stky2(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr_stkx3(:,:), dataPtr_stky3(:,:)
+
     type(ocean_grid_type), pointer :: Ocean_grid
     character(240)              :: msgString
     character(len=*),parameter  :: subname='(mom_cap:ModelAdvance)'
+
 
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
@@ -1377,6 +1390,7 @@ module mom_cap_mod
     Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
     Ocean_sfc          => ocean_internalstate%ptr%ocean_public_type_ptr
     Ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
+    wave_CS            => ocean_internalstate%ptr%wave_CS_ptr
 
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
     
@@ -1479,6 +1493,70 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    if (wave_CS%UseWaves) then 
+      call State_getFldPtr(importState,'eastward_partitioned_stokes_drift_1',dataPtr_stkx1,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call State_getFldPtr(importState,'northward_partitioned_stokes_drift_1',dataPtr_stky1,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call State_getFldPtr(importState,'eastward_partitioned_stokes_drift_2',dataPtr_stkx2,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call State_getFldPtr(importState,'northward_partitioned_stokes_drift_2',dataPtr_stky2,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call State_getFldPtr(importState,'eastward_partitioned_stokes_drift_3',dataPtr_stkx3,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call State_getFldPtr(importState,'northward_partitioned_stokes_drift_3',dataPtr_stky3,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      allocate(stkx1(lbnd1:ubnd1,lbnd2:ubnd2))
+      allocate(stky1(lbnd1:ubnd1,lbnd2:ubnd2))
+      allocate(stkx2(lbnd1:ubnd1,lbnd2:ubnd2))
+      allocate(stky2(lbnd1:ubnd1,lbnd2:ubnd2))
+      allocate(stkx3(lbnd1:ubnd1,lbnd2:ubnd2))
+      allocate(stky3(lbnd1:ubnd1,lbnd2:ubnd2))
+      do j  = lbnd2, ubnd2
+        do i = lbnd1, ubnd1
+          j1 = j - lbnd2 + jsc  ! work around local vs global indexing
+          i1 = i - lbnd1 + isc
+          stkx1(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stkx1(i,j) &
+                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stky1(i,j)
+          stky1(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stky1(i,j) &
+                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx1(i,j)
+          stkx2(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stkx2(i,j) &
+                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stky2(i,j)
+          stky2(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stky2(i,j) &
+                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx2(i,j)
+          stkx3(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stkx3(i,j) &
+                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stky3(i,j)
+          stky3(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stky3(i,j) &
+                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx3(i,j)
+        enddo
+      enddo
+      dataPtr_stkx1 = stkx1
+      dataPtr_stky1 = stky1
+      dataPtr_stkx2 = stkx2
+      dataPtr_stky2 = stky2
+      dataPtr_stkx3 = stkx3
+      dataPtr_stky3 = stky3
+      deallocate(stkx1,stkx2,stkx3,stky1,stky2,stky3)
+    endif ! UseWaves
 
     dataPtr_evap = - dataPtr_evap
     dataPtr_sensi = - dataPtr_sensi
@@ -1498,6 +1576,7 @@ module mom_cap_mod
     dataPtr_mzmf = mzmf
     dataPtr_mmmf = mmmf
     deallocate(mzmf, mmmf)
+
    endif  ! not ocean_solo
 
     !Optionally write restart files when currTime-startTime is integer multiples of restart_interval
@@ -1983,7 +2062,7 @@ module mom_cap_mod
 
   subroutine MOM_FieldsSetup(ice_ocean_boundary,ocean_sfc)
 
-    USE MOM_wave_interface, only: NumBands,wave_parameters_CS
+    USE MOM_wave_interface, only: NumBands
     type(ice_ocean_boundary_type), intent(in)   :: Ice_ocean_boundary
     type(ocean_public_type), intent(in)         :: Ocean_sfc
     type(wave_parameters_CS)                    :: wave_CS   !< Wave parameter control structure
