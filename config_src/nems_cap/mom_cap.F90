@@ -410,7 +410,7 @@ module mom_cap_mod
     type(ocean_state_type),        pointer :: ocean_state_type_ptr
     type(ice_ocean_boundary_type), pointer :: ice_ocean_boundary_type_ptr
     type(ocean_grid_type),         pointer :: ocean_grid_ptr
-    type(wave_parameters_CS),      pointer :: wave_CS_ptr 
+    type(wave_parameters_CS),      pointer :: wave_parameters_CS_type_ptr
  end type
 
   type ocean_internalstate_wrapper
@@ -624,6 +624,7 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc   => NULL()
     type (ocean_state_type),       pointer :: Ocean_state => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
+    type(wave_parameters_CS),      pointer :: wave_CS       => NULL()
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
 
     type(time_type)                        :: Run_len      ! length of experiment 
@@ -647,10 +648,12 @@ module mom_cap_mod
     allocate(Ice_ocean_boundary)
     !allocate(Ocean_state) ! ocean_model_init allocate this pointer
     allocate(Ocean_sfc)
+    !allocate(wave_CS) ! ocean_model_init allocate this pointer
     allocate(ocean_internalstate%ptr)
     ocean_internalstate%ptr%ice_ocean_boundary_type_ptr => Ice_ocean_boundary
     ocean_internalstate%ptr%ocean_public_type_ptr       => Ocean_sfc
     ocean_internalstate%ptr%ocean_state_type_ptr        => Ocean_state
+    ocean_internalstate%ptr%wave_parameters_CS_type_ptr => wave_CS 
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -803,6 +806,7 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc   => NULL()
     type (ocean_state_type),       pointer :: Ocean_state => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
+    type(wave_parameters_CS),      pointer :: wave_CS       => NULL()
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
     integer                                :: npet, ntiles
     integer                                :: nxg, nyg, cnt
@@ -839,6 +843,7 @@ module mom_cap_mod
     Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
     Ocean_sfc          => ocean_internalstate%ptr%ocean_public_type_ptr
     Ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
+    wave_CS            => ocean_internalstate%ptr%wave_parameters_CS_type_ptr
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1390,7 +1395,7 @@ module mom_cap_mod
     Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
     Ocean_sfc          => ocean_internalstate%ptr%ocean_public_type_ptr
     Ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
-    wave_CS            => ocean_internalstate%ptr%wave_CS_ptr
+    wave_CS            => ocean_internalstate%ptr%wave_parameters_CS_type_ptr
 
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
     
@@ -1493,7 +1498,7 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (wave_CS%UseWaves) then 
+    if (Ocean_state%use_waves) then 
       call State_getFldPtr(importState,'eastward_partitioned_stokes_drift_1',dataPtr_stkx1,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
