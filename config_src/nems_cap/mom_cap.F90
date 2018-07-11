@@ -385,8 +385,6 @@ module mom_cap_mod
   use ocean_model_mod,          only: ice_ocean_boundary_type
   use MOM_grid,                 only: ocean_grid_type
   use MOM_restart,              only: save_restart
-! XX
-  use MOM_variables,            only: surface
 #else
   use ocean_types_mod,          only: ice_ocean_boundary_type, ocean_grid_type
 #endif
@@ -409,8 +407,6 @@ module mom_cap_mod
     type(ocean_state_type),        pointer :: ocean_state_type_ptr
     type(ice_ocean_boundary_type), pointer :: ice_ocean_boundary_type_ptr
     type(ocean_grid_type),         pointer :: ocean_grid_ptr
-!XX
-    type(surface),                 pointer :: surface_type_ptr
   end type
 
   type ocean_internalstate_wrapper
@@ -624,8 +620,6 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc   => NULL()
     type (ocean_state_type),       pointer :: Ocean_state => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
-!XX
-    type (surface),                pointer :: Surface => NULL()
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
 
     type(time_type)                        :: Run_len      ! length of experiment 
@@ -649,14 +643,10 @@ module mom_cap_mod
     allocate(Ice_ocean_boundary)
     !allocate(Ocean_state) ! ocean_model_init allocate this pointer
     allocate(Ocean_sfc)
-!XX
-    allocate(Surface)
     allocate(ocean_internalstate%ptr)
     ocean_internalstate%ptr%ice_ocean_boundary_type_ptr => Ice_ocean_boundary
     ocean_internalstate%ptr%ocean_public_type_ptr       => Ocean_sfc
     ocean_internalstate%ptr%ocean_state_type_ptr        => Ocean_state
-!XX 
-    ocean_internalstate%ptr%surface_type_ptr            => Surface
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -809,8 +799,6 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc   => NULL()
     type (ocean_state_type),       pointer :: Ocean_state => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
-!XX
-    type (surface),                pointer :: Surface => NULL()
 
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
     integer                                :: npet, ntiles
@@ -848,8 +836,6 @@ module mom_cap_mod
     Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
     Ocean_sfc          => ocean_internalstate%ptr%ocean_public_type_ptr
     Ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
-!XX
-    Surface            => ocean_internalstate%ptr%surface_type_ptr
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1347,8 +1333,6 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc          => NULL()
     type (ocean_state_type),       pointer :: Ocean_state        => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
-!XX
-    type (surface),                pointer :: Surface => NULL()
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
 
     ! define some time types 
@@ -1368,7 +1352,7 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer :: dataPtr_ocz(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_ocm(:,:) 
     real(ESMF_KIND_R8), pointer :: dataPtr_frazil(:,:)
-!XX 
+!XX TODO add to fldlist_add
     !real(ESMF_KIND_R8), pointer :: dataPtr_melting_potential(:,:)
     !real(ESMF_KIND_R8), pointer :: dataPtr_freeze_melt(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_evap(:,:)
@@ -1397,8 +1381,6 @@ module mom_cap_mod
     Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
     Ocean_sfc          => ocean_internalstate%ptr%ocean_public_type_ptr
     Ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
-!XX
-    Surface            => ocean_internalstate%ptr%surface_type_ptr
 
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
     
@@ -1603,9 +1585,9 @@ module mom_cap_mod
     deallocate(ocz, ocm)
 
     write (msgString,*)' MOM6 Hml min,max,sum',&
-                       minval(real(Surface%Hml,4)),&
-                       maxval(real(Surface%Hml,4)),&
-                          sum(real(Surface%Hml,4))
+                       minval(real(Ocean_state%sfc_state%Hml,4)),&
+                       maxval(real(Ocean_state%sfc_state%Hml,4)),&
+                          sum(real(Ocean_state%sfc_state%Hml,4))
      call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
    endif  ! not ocean_solo
@@ -1653,6 +1635,8 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
+
+    call dumpMomInternal(mom_grid_i, export_slice, "Hml"   , "will provide", Ocean_state%sfc_state%Hml)
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
@@ -2109,7 +2093,7 @@ module mom_cap_mod
     integer                  :: rc
 
 #ifdef MOM6_CAP
-    return
+    !return
 #endif
 
     if(.not. write_diagnostics) return ! nop in production mode
