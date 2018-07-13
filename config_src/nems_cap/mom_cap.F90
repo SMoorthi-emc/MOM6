@@ -266,7 +266,6 @@
 !!        type(ocean_public_type),       pointer :: ocean_public_type_ptr
 !!        type(ocean_state_type),        pointer :: ocean_state_type_ptr
 !!        type(ice_ocean_boundary_type), pointer :: ice_ocean_boundary_type_ptr
-!!        type(wave_parameters_CS),      pointer :: wave_parameters_CS_type_ptr
 !!     end type
 !!
 !!     type ocean_internalstate_wrapper
@@ -390,7 +389,10 @@ module mom_cap_mod
   use ocean_types_mod,          only: ice_ocean_boundary_type, ocean_grid_type
 #endif
 
-  use MOM_wave_interface,       only: wave_parameters_CS
+!  use MOM_wave_interface,       only: wave_parameters_CS
+  use MOM_wave_interface,       only: wave_parameters_CS, MOM_wave_interface_init
+  use MOM_wave_interface,       only: MOM_wave_interface_init_lite, Update_Surface_Waves
+
 
   use ESMF
   use NUOPC
@@ -410,7 +412,6 @@ module mom_cap_mod
     type(ocean_state_type),        pointer :: ocean_state_type_ptr
     type(ice_ocean_boundary_type), pointer :: ice_ocean_boundary_type_ptr
     type(ocean_grid_type),         pointer :: ocean_grid_ptr
-    type(wave_parameters_CS),      pointer :: wave_parameters_CS_type_ptr
  end type
 
   type ocean_internalstate_wrapper
@@ -624,7 +625,6 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc   => NULL()
     type (ocean_state_type),       pointer :: Ocean_state => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
-    type(wave_parameters_CS),      pointer :: wave_CS       => NULL()
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
 
     type(time_type)                        :: Run_len      ! length of experiment 
@@ -648,12 +648,10 @@ module mom_cap_mod
     allocate(Ice_ocean_boundary)
     !allocate(Ocean_state) ! ocean_model_init allocate this pointer
     allocate(Ocean_sfc)
-    !allocate(wave_CS) ! ocean_model_init allocate this pointer
     allocate(ocean_internalstate%ptr)
     ocean_internalstate%ptr%ice_ocean_boundary_type_ptr => Ice_ocean_boundary
     ocean_internalstate%ptr%ocean_public_type_ptr       => Ocean_sfc
     ocean_internalstate%ptr%ocean_state_type_ptr        => Ocean_state
-    ocean_internalstate%ptr%wave_parameters_CS_type_ptr => wave_CS 
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -750,7 +748,7 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
-    call MOM_FieldsSetup(ice_ocean_boundary, ocean_sfc)
+    call MOM_FieldsSetup(ice_ocean_boundary, ocean_sfc, Ocean_state)
 
     call MOM_AdvertiseFields(importState, fldsToOcn_num, fldsToOcn, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -806,7 +804,6 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc   => NULL()
     type (ocean_state_type),       pointer :: Ocean_state => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
-    type(wave_parameters_CS),      pointer :: wave_CS       => NULL()
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
     integer                                :: npet, ntiles
     integer                                :: nxg, nyg, cnt
@@ -843,7 +840,6 @@ module mom_cap_mod
     Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
     Ocean_sfc          => ocean_internalstate%ptr%ocean_public_type_ptr
     Ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
-    wave_CS            => ocean_internalstate%ptr%wave_parameters_CS_type_ptr
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1342,7 +1338,6 @@ module mom_cap_mod
     type (ocean_public_type),      pointer :: Ocean_sfc          => NULL()
     type (ocean_state_type),       pointer :: Ocean_state        => NULL()
     type(ice_ocean_boundary_type), pointer :: Ice_ocean_boundary => NULL()
-    type(wave_parameters_CS),      pointer :: wave_CS       => NULL()
     type(ocean_internalstate_wrapper)      :: ocean_internalstate
 
     ! define some time types 
@@ -1395,7 +1390,6 @@ module mom_cap_mod
     Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
     Ocean_sfc          => ocean_internalstate%ptr%ocean_public_type_ptr
     Ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
-    wave_CS            => ocean_internalstate%ptr%wave_parameters_CS_type_ptr
 
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
     
@@ -1498,7 +1492,7 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    if (Ocean_state%use_waves) then 
+    if (Ocean_state%Waves%UseWaves) then 
       call State_getFldPtr(importState,'eastward_partitioned_stokes_drift_1',dataPtr_stkx1,rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -1699,6 +1693,15 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, import_slice, "mean_calving_heat_flx", "will provide", Ice_ocean_boundary%calving_hflx)
     call dumpMomInternal(mom_grid_i, import_slice, "inst_pres_height_surface" , "will provide", Ice_ocean_boundary%p )
     call dumpMomInternal(mom_grid_i, import_slice, "mass_of_overlying_sea_ice", "will provide", Ice_ocean_boundary%mi)
+    if (Ocean_state%Waves%UseWaves) then
+      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_1", "will provide", Ocean_state%Waves%STKx0(:,:,1))
+      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_1", "will provide", Ocean_state%Waves%STKy0(:,:,1))
+      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_2", "will provide", Ocean_state%Waves%STKx0(:,:,2))
+      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_2", "will provide", Ocean_state%Waves%STKy0(:,:,2))
+      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_3", "will provide", Ocean_state%Waves%STKx0(:,:,3))
+      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_3", "will provide", Ocean_state%Waves%STKy0(:,:,3))
+    endif !UseWaves
+
 
 !--------- export fields -------------
 
@@ -1780,20 +1783,20 @@ module mom_cap_mod
 
       Time_next = Time + Time_step_coupled
 
-      call data_override('OCN', 't_flux',          x%t_flux         , Time_next)
-      call data_override('OCN', 'u_flux',          x%u_flux         , Time_next)
-      call data_override('OCN', 'v_flux',          x%v_flux         , Time_next)
-      call data_override('OCN', 'q_flux',          x%q_flux         , Time_next)
-      call data_override('OCN', 'salt_flux',       x%salt_flux      , Time_next)
-      call data_override('OCN', 'lw_flux',         x%lw_flux        , Time_next)
-      call data_override('OCN', 'sw_flux_vis_dir', x%sw_flux_vis_dir, Time_next)
-      call data_override('OCN', 'sw_flux_vis_dif', x%sw_flux_vis_dif, Time_next)
-      call data_override('OCN', 'sw_flux_nir_dir', x%sw_flux_nir_dir, Time_next)
-      call data_override('OCN', 'sw_flux_nir_dif', x%sw_flux_nir_dif, Time_next)
-      call data_override('OCN', 'lprec',           x%lprec          , Time_next)
-      call data_override('OCN', 'fprec',           x%fprec          , Time_next)
-      call data_override('OCN', 'runoff',          x%runoff         , Time_next)
-      call data_override('OCN', 'calving',         x%calving        , Time_next)
+      !call data_override('OCN', 't_flux',          x%t_flux         , Time_next)
+      !call data_override('OCN', 'u_flux',          x%u_flux         , Time_next)
+      !call data_override('OCN', 'v_flux',          x%v_flux         , Time_next)
+      !call data_override('OCN', 'q_flux',          x%q_flux         , Time_next)
+      !call data_override('OCN', 'salt_flux',       x%salt_flux      , Time_next)
+      !call data_override('OCN', 'lw_flux',         x%lw_flux        , Time_next)
+      !call data_override('OCN', 'sw_flux_vis_dir', x%sw_flux_vis_dir, Time_next)
+      !call data_override('OCN', 'sw_flux_vis_dif', x%sw_flux_vis_dif, Time_next)
+      !call data_override('OCN', 'sw_flux_nir_dir', x%sw_flux_nir_dir, Time_next)
+      !call data_override('OCN', 'sw_flux_nir_dif', x%sw_flux_nir_dif, Time_next)
+      !call data_override('OCN', 'lprec',           x%lprec          , Time_next)
+      !call data_override('OCN', 'fprec',           x%fprec          , Time_next)
+      !call data_override('OCN', 'runoff',          x%runoff         , Time_next)
+      !call data_override('OCN', 'calving',         x%calving        , Time_next)
       !call data_override('OCN', 'p',               x%p              , Time_next)
             
   end subroutine ice_ocn_bnd_from_data
@@ -2065,12 +2068,12 @@ module mom_cap_mod
 
   !-----------------------------------------------------------------------------
 
-  subroutine MOM_FieldsSetup(ice_ocean_boundary,ocean_sfc)
+  subroutine MOM_FieldsSetup(ice_ocean_boundary,ocean_sfc,Ocean_state)
 
     USE MOM_wave_interface, only: NumBands
     type(ice_ocean_boundary_type), intent(in)   :: Ice_ocean_boundary
     type(ocean_public_type), intent(in)         :: Ocean_sfc
-    type(wave_parameters_CS)                    :: wave_CS   !< Wave parameter control structure
+    type(ocean_state_type), intent(in)          :: Ocean_state 
     
     character(len=*),parameter  :: subname='(mom_cap:MOM_FieldsSetup)'
 
@@ -2100,16 +2103,16 @@ module mom_cap_mod
     call fld_list_add(fldsToOcn_num, fldsToOcn, "mass_of_overlying_sea_ice", "will provide", data=Ice_ocean_boundary%mi)
 
 ! add waves: 
-    if (wave_CS%UseWaves) then 
+    if (Ocean_state%Use_Waves) then 
       if (NumBands.ne.3) then
          write(*,*) 'WARNING: NumBands is hardcoded to 3, if not 3 abort!'
       endif 
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_1", "will provide",  data=wave_CS%STKx0(:,:,1))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_1", "will provide", data=wave_CS%STKy0(:,:,1))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_2", "will provide",  data=wave_CS%STKx0(:,:,2))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_2", "will provide", data=wave_CS%STKy0(:,:,2))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_3", "will provide",  data=wave_CS%STKx0(:,:,3))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_3", "will provide", data=wave_CS%STKy0(:,:,3))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_1", "will provide",  data=Ocean_state%Waves%STKx0(:,:,1))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_1", "will provide", data=Ocean_state%Waves%STKy0(:,:,1))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_2", "will provide",  data=Ocean_state%Waves%STKx0(:,:,2))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_2", "will provide", data=Ocean_state%Waves%STKy0(:,:,2))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_3", "will provide",  data=Ocean_state%Waves%STKx0(:,:,3))
+      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_3", "will provide", data=Ocean_state%Waves%STKy0(:,:,3))
     endif !UseWaves
 
 !--------- export fields -------------

@@ -395,13 +395,14 @@ subroutine MOM_wave_interface_init(time,G,GV,param_file, CS, diag )
 end subroutine MOM_wave_interface_init
 
 
-subroutine MOM_wave_interface_init_lite(param_file)
+subroutine MOM_wave_interface_init_lite(param_file, CS)
   !It is possible to estimate Stokes drift without the Wave data (if WaveMethod=LF17).
   ! In this case there are still a couple inputs we need to read in, which is done
   ! here in a reduced wave_interface_init that doesn't allocate the CS.
 
   !Arguments
   type(param_file_type), intent(in)      :: param_file !< Input parameter structure
+  type(wave_parameters_CS), pointer      :: CS         !< Wave parameter control structure
 
 
   ! Langmuir number Options
@@ -415,6 +416,13 @@ subroutine MOM_wave_interface_init_lite(param_file)
     WaveMethod=LF17
     PI=4.0*atan(1.0)
   endif
+
+  !/ Allocate CS and set pointers
+  allocate(CS)
+
+  ! The only way to get here is with UseWaves enabled.
+  CS%UseWaves=.false.
+
 
   return
 end subroutine MOM_wave_interface_init_lite
