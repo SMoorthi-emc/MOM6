@@ -2631,6 +2631,10 @@ subroutine extract_surface_state(CS, sfc_state)
         else
           dh = 0.0
         endif
+        if(i .eq. (ie-is)/2 .and. j .eq. (je-js)/2) &
+        print *,'YY',k,real(dh,4), &
+                      real(depth(i),4),  &
+                      real(h(i,j,k)*GV%H_to_m,4)
         if (use_temperature) then
           sfc_state%SST(i,j) = sfc_state%SST(i,j) + dh * CS%tv%T(i,j,k)
           sfc_state%SSS(i,j) = sfc_state%SSS(i,j) + dh * CS%tv%S(i,j,k)
@@ -2650,6 +2654,9 @@ subroutine extract_surface_state(CS, sfc_state)
           sfc_state%sfc_density(i,j) = sfc_state%sfc_density(i,j) / depth(i)
         endif
         sfc_state%Hml(i,j) = depth(i)
+        !print *,'XX',i,j,real(sfc_state%Hml(i,j),4), &
+        !                 real(sfc_state%SST(i,j),4), &
+        !                 real(sfc_state%SSS(i,j),4)
       enddo
     enddo ! end of j loop
 

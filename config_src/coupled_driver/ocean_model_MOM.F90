@@ -49,6 +49,8 @@ use MOM_time_manager, only : operator(<), real_to_time_type, time_type_to_real
 use MOM_tracer_flow_control, only : call_tracer_register, tracer_flow_control_init
 use MOM_tracer_flow_control, only : call_tracer_flux_init
 use MOM_variables, only : surface
+! added for access to MLD
+!use MOM_variables, only : vertvisc_type
 use MOM_verticalGrid, only : verticalGrid_type
 use MOM_ice_shelf, only : initialize_ice_shelf, shelf_calc_flux, ice_shelf_CS
 use MOM_ice_shelf, only : ice_shelf_end, ice_shelf_save_restart
@@ -121,6 +123,7 @@ type, public ::  ocean_public_type
     v_surf => NULL(), & !< j-velocity at the locations indicated by stagger, m/s.
     sea_lev => NULL(), & !< Sea level in m after correction for surface pressure,
                         !! i.e. dzt(1) + eta_t + patm/rho0/grav (m)
+    mld => NULL(),  &   !< mixed layer depth for calculation of freeze-melt potential, m
     frazil =>NULL(), &  !< Accumulated heating (in Joules/m^2) from frazil
                         !! formation in the ocean.
     area => NULL()      !< cell area of the ocean surface, in m2.
@@ -196,6 +199,9 @@ type, public :: ocean_state_type ! JW: remove private so that CAP can write out 
                               !! timesteps are taken per thermodynamic step.
   type(surface)   :: sfc_state !< A structure containing pointers to
                               !! the ocean surface state fields.
+
+  !type(vertvisc_type) :: visc
+
   type(ocean_grid_type), pointer :: &
     grid => NULL()            !< A pointer to a grid structure containing metrics
                               !! and related information.
@@ -918,6 +924,7 @@ subroutine initialize_ocean_public_type(input_domain, Ocean_sfc, diag, maskmap, 
              Ocean_sfc%u_surf (isc:iec,jsc:jec), &
              Ocean_sfc%v_surf (isc:iec,jsc:jec), &
              Ocean_sfc%sea_lev(isc:iec,jsc:jec), &
+             Ocean_sfc%mld    (isc:iec,jsc:jec), &
              Ocean_sfc%area   (isc:iec,jsc:jec), &
              Ocean_sfc%frazil (isc:iec,jsc:jec))
 
@@ -926,6 +933,7 @@ subroutine initialize_ocean_public_type(input_domain, Ocean_sfc, diag, maskmap, 
   Ocean_sfc%u_surf  = 0.0  ! time averaged u-current (m/sec) passed to atmosphere/ice models
   Ocean_sfc%v_surf  = 0.0  ! time averaged v-current (m/sec)  passed to atmosphere/ice models
   Ocean_sfc%sea_lev = 0.0  ! time averaged thickness of top model grid cell (m) plus patm/rho0/grav
+  Ocean_sfc%mld     = 0.0  ! 
   Ocean_sfc%frazil  = 0.0  ! time accumulated frazil (J/m^2) passed to ice model
   Ocean_sfc%area    = 0.0
   Ocean_sfc%axes    = diag%axesT1%handles !diag axes to be used by coupler tracer flux diagnostics
@@ -1001,6 +1009,11 @@ subroutine convert_state_to_ocean_type(sfc_state, Ocean_sfc, G, &
       Ocean_sfc%area(i,j) = G%areaT(i+i0,j+j0)
     enddo ; enddo
   endif
+
+  do j=jsc_bnd,jec_bnd ; do i=isc_bnd,iec_bnd
+    Ocean_sfc%mld(i,j) = sfc_state%Hml(i+i0,j+j0)
+  !  Ocean_sfc%mld(i,j) = vertvisc_type%MLD(i+i0,j+j0)
+  enddo ; enddo
 
   if (associated(sfc_state%frazil)) then
     do j=jsc_bnd,jec_bnd ; do i=isc_bnd,iec_bnd
@@ -1242,6 +1255,7 @@ subroutine ocean_public_type_chksum(id, timestep, ocn)
     write(outunit,100) 'ocean%v_surf   ',mpp_chksum(ocn%v_surf )
     write(outunit,100) 'ocean%sea_lev  ',mpp_chksum(ocn%sea_lev)
     write(outunit,100) 'ocean%frazil   ',mpp_chksum(ocn%frazil )
+    write(outunit,100) 'ocean%mld      ',mpp_chksum(ocn%mld    )
 
     call coupler_type_write_chksums(ocn%fields, outunit, 'ocean%')
 100 FORMAT("   CHECKSUM::",A20," = ",Z20)
