@@ -696,6 +696,7 @@ module mom_cap_mod
     call data_override_init(Ocean_domain_in = Ocean_sfc%domain)
     call mpp_get_compute_domain(Ocean_sfc%domain, isc, iec, jsc, jec)
 
+    ! these are import fields
     allocate ( Ice_ocean_boundary% u_flux (isc:iec,jsc:jec),          &
                Ice_ocean_boundary% v_flux (isc:iec,jsc:jec),          &
                Ice_ocean_boundary% t_flux (isc:iec,jsc:jec),          &
@@ -823,6 +824,7 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer            :: dataPtr_xcor(:,:)
     real(ESMF_KIND_R8), pointer            :: dataPtr_ycor(:,:)
     type(ESMF_Field)                       :: field_t_surf
+
     character(len=*),parameter  :: subname='(mom_cap:InitializeRealize)'
     
     rc = ESMF_SUCCESS
@@ -1352,6 +1354,7 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer :: dataPtr_ocz(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_ocm(:,:) 
     real(ESMF_KIND_R8), pointer :: dataPtr_frazil(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr_mld(:,:)
 !XX TODO add to fldlist_add
     !real(ESMF_KIND_R8), pointer :: dataPtr_melting_potential(:,:)
     !real(ESMF_KIND_R8), pointer :: dataPtr_freeze_melt(:,:)
@@ -1567,6 +1570,11 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    call State_getFldPtr(exportState,'mixed_layer_depth',dataPtr_mld,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
 
@@ -1582,14 +1590,47 @@ module mom_cap_mod
                          + Ocean_grid%sin_rot(i1,j1)*ocz(i,j)
       enddo
     enddo
+
     deallocate(ocz, ocm)
+
+    write (msgString,*)' MOM6 Hml bounds',&
+                       lbound(Ocean_state%sfc_state%Hml,1),&
+                       ubound(Ocean_state%sfc_state%Hml,1),&
+                       lbound(Ocean_state%sfc_state%Hml,2),&
+                       ubound(Ocean_state%sfc_state%Hml,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    !write (msgString,*)' MOM6 MLD (vertvisc) bounds',&
+    !                   lbound(Ocean_state%visc%MLD,1),&
+    !                   ubound(Ocean_state%visc%MLD,1),&
+    !                   lbound(Ocean_state%visc%MLD,2),&
+    !                   ubound(Ocean_state%visc%MLD,2)
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' MOM6 t_surf bounds',&
+                       lbound(Ocean_sfc%t_surf,1),&
+                       ubound(Ocean_sfc%t_surf,1),&
+                       lbound(Ocean_sfc%t_surf,2),&
+                       ubound(Ocean_sfc%t_surf,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     write (msgString,*)' MOM6 Hml min,max,sum',&
                        minval(real(Ocean_state%sfc_state%Hml,4)),&
                        maxval(real(Ocean_state%sfc_state%Hml,4)),&
                           sum(real(Ocean_state%sfc_state%Hml,4))
-     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
+    !write (msgString,*)' MOM6 MLD (vertvisc) min,max,sum',&
+    !                   minval(real(Ocean_state%visc%MLD,4)),&
+    !                   maxval(real(Ocean_state%visc%MLD,4)),&
+    !                      sum(real(Ocean_state%visc%MLD,4))
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' MOM6 t_surf min,max,sum',&
+                       minval(real(Ocean_sfc%t_surf,4)),&
+                       maxval(real(Ocean_sfc%t_surf,4)),&
+                          sum(real(Ocean_sfc%t_surf,4))
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
    endif  ! not ocean_solo
 
     call ESMF_LogWrite("Before writing diagnostics", ESMF_LOGMSG_INFO, rc=rc)
@@ -1608,6 +1649,8 @@ module mom_cap_mod
 
     call ESMF_LogWrite("Before dumpMomInternal", ESMF_LOGMSG_INFO, rc=rc)
     !write(*,*) 'MOM: --- run phase called ---'
+!turn off for testing
+#ifdef test
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
     call dumpMomInternal(mom_grid_i, import_slice, "mean_merid_moment_flx", "will provide", Ice_ocean_boundary%v_flux)
     call dumpMomInternal(mom_grid_i, import_slice, "mean_sensi_heat_flx"  , "will provide", Ice_ocean_boundary%t_flux)
@@ -1626,6 +1669,7 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, import_slice, "mean_calving_heat_flx", "will provide", Ice_ocean_boundary%calving_hflx)
     call dumpMomInternal(mom_grid_i, import_slice, "inst_pres_height_surface" , "will provide", Ice_ocean_boundary%p )
     call dumpMomInternal(mom_grid_i, import_slice, "mass_of_overlying_sea_ice", "will provide", Ice_ocean_boundary%mi)
+#endif
 
 !--------- export fields -------------
 
@@ -1635,8 +1679,7 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
-
-    call dumpMomInternal(mom_grid_i, export_slice, "Hml"   , "will provide", Ocean_state%sfc_state%Hml)
+    call dumpMomInternal(mom_grid_i, export_slice, "mld"   , "will provide", Ocean_sfc%mld)
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
@@ -1935,7 +1978,7 @@ module mom_cap_mod
     do i = 1, nfields
 
       if (field_defs(i)%assoc) then
-        write(tmpstr, *) subname, tag, ' Field ', field_defs(i)%shortname, ':', &
+        write(tmpstr, *) subname, tag, ' Field ', trim(field_defs(i)%shortname), ':', &
           lbound(field_defs(i)%farrayPtr,1), ubound(field_defs(i)%farrayPtr,1), &
           lbound(field_defs(i)%farrayPtr,2), ubound(field_defs(i)%farrayPtr,2)
         call ESMF_LogWrite(tmpstr, ESMF_LOGMSG_INFO, rc=dbrc)
@@ -1962,7 +2005,7 @@ module mom_cap_mod
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-        call ESMF_LogWrite(subname // tag // " Field "// field_defs(i)%stdname // " is connected.", &
+        call ESMF_LogWrite(trim(subname) // trim(tag) // " Field "// trim(field_defs(i)%stdname) // " is connected.", &
           ESMF_LOGMSG_INFO, &
           line=__LINE__, &
           file=__FILE__, &
@@ -1973,7 +2016,7 @@ module mom_cap_mod
 !          file=__FILE__)) &
 !          return  ! bail out
       else
-        call ESMF_LogWrite(subname // tag // " Field "// field_defs(i)%stdname // " is not connected.", &
+        call ESMF_LogWrite(trim(subname) // trim(tag) // " Field "// trim(field_defs(i)%stdname) // " is not connected.", &
           ESMF_LOGMSG_INFO, &
           line=__LINE__, &
           file=__FILE__, &
@@ -2035,6 +2078,7 @@ module mom_cap_mod
 !    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "ocn_current_jdir", "will provide")
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"   , "will provide", data=Ocean_sfc%sea_lev)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential"   , "will provide", data=Ocean_sfc%frazil)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "mixed_layer_depth"   , "will provide", data=Ocean_sfc%mld)
 
   end subroutine MOM_FieldsSetup
 
@@ -2092,9 +2136,14 @@ module mom_cap_mod
     real(ESMF_KIND_R8), dimension(:,:), pointer  :: f2d
     integer                  :: rc
 
+    character(len=ESMF_MAXSTR)    :: msgString
 #ifdef MOM6_CAP
     !return
 #endif
+     !write(msgString,'(a,i6,a2,a,4i6)')'dumpMOM farray ',slice,'  ',trim(stdname), &
+     !                                   lbound(farray,1),ubound(farray,1), &
+     !                                   lbound(farray,2),ubound(farray,2)
+     !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
     if(.not. write_diagnostics) return ! nop in production mode
     if(ocean_solo) return ! do not dump internal fields in ocean solo mode
@@ -2112,6 +2161,11 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+     !write(msgString,'(a,i6,a2,a,4i6)')'dumpMOM f2d ',slice,'  ',trim(stdname), &
+     !                                   lbound(f2d,1),ubound(f2d,1), & 
+     !                                   lbound(f2d,2),ubound(f2d,2)
+     !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
     f2d(:,:) = farray(:,:)
 
