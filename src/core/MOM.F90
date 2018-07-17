@@ -2738,6 +2738,7 @@ subroutine extract_surface_state(CS, sfc_state)
       enddo
 
       do k=1,nz ; do i=is,ie
+        depth_ml = CS%visc%MLD(i,j)
         if (depth(i) + h(i,j,k)*GV%H_to_m < depth_ml) then
           dh = h(i,j,k)*GV%H_to_m
         elseif (depth(i) < depth_ml) then
@@ -2745,10 +2746,6 @@ subroutine extract_surface_state(CS, sfc_state)
         else
           dh = 0.0
         endif
-        if(i .eq. (ie-is)/2 .and. j .eq. (je-js)/2) &
-        print *,'YY',k,real(dh,4), &
-                      real(depth(i),4),  &
-                      real(h(i,j,k)*GV%H_to_m,4)
         if (use_temperature) then
           sfc_state%SST(i,j) = sfc_state%SST(i,j) + dh * CS%tv%T(i,j,k)
           sfc_state%SSS(i,j) = sfc_state%SSS(i,j) + dh * CS%tv%S(i,j,k)
@@ -2768,9 +2765,8 @@ subroutine extract_surface_state(CS, sfc_state)
           sfc_state%sfc_density(i,j) = sfc_state%sfc_density(i,j) / depth(i)
         endif
         sfc_state%Hml(i,j) = depth(i)
-        !print *,'XX',i,j,real(sfc_state%Hml(i,j),4), &
-        !                 real(sfc_state%SST(i,j),4), &
-        !                 real(sfc_state%SSS(i,j),4)
+        if(i .eq. (ie-is)/2 .and. j .eq. (je-js)/2) &
+        print *,'XX',real(sfc_state%Hml(i,j),4), real(CS%visc%MLD(i,j),4)
       enddo
     enddo ! end of j loop
 
@@ -2784,6 +2780,7 @@ subroutine extract_surface_state(CS, sfc_state)
           sfc_state%v(i,J) = 0.0
         enddo
         do k=1,nz ; do i=is,ie
+        depth_ml = 0.5 * (CS%visc%MLD(i,j) + CS%visc%MLD(i,j+1))
           hv = 0.5 * (h(i,j,k) + h(i,j+1,k)) * GV%H_to_m
           if (depth(i) + hv < depth_ml) then
             dh = hv
@@ -2810,6 +2807,7 @@ subroutine extract_surface_state(CS, sfc_state)
           sfc_state%u(I,j) = 0.0
         enddo
         do k=1,nz ; do I=iscB,iecB
+        depth_ml = 0.5 * (CS%visc%MLD(i,j) + CS%visc%MLD(i+1,j))
           hu = 0.5 * (h(i,j,k) + h(i+1,j,k)) * GV%H_to_m
           if (depth(i) + hu < depth_ml) then
             dh = hu
