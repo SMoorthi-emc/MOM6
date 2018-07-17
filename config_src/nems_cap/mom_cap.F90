@@ -2107,12 +2107,18 @@ module mom_cap_mod
       if (NumBands.ne.3) then
          write(*,*) 'WARNING: NumBands is hardcoded to 3, if not 3 abort!'
       endif 
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_1", "will provide",  data=Ocean_state%Waves%STKx0(:,:,1))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_1", "will provide", data=Ocean_state%Waves%STKy0(:,:,1))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_2", "will provide",  data=Ocean_state%Waves%STKx0(:,:,2))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_2", "will provide", data=Ocean_state%Waves%STKy0(:,:,2))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_3", "will provide",  data=Ocean_state%Waves%STKx0(:,:,3))
-      call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_3", "will provide", data=Ocean_state%Waves%STKy0(:,:,3))
+      !call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_1", "will provide",  data=Ocean_state%Waves%STKx0(:,:,1))
+      !call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_1", "will provide", data=Ocean_state%Waves%STKy0(:,:,1))
+      !call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_2", "will provide",  data=Ocean_state%Waves%STKx0(:,:,2))
+      !call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_2", "will provide", data=Ocean_state%Waves%STKy0(:,:,2))
+      !call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_3", "will provide",  data=Ocean_state%Waves%STKx0(:,:,3))
+      !call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_3", "will provide", data=Ocean_state%Waves%STKy0(:,:,3))
+      call fld_list_add(fldsToOcn_num, fldsToOcn,"eastward_partitioned_stokes_drift_1", "will provide")
+      call fld_list_add(fldsToOcn_num, fldsToOcn,"northward_partitioned_stokes_drift_1", "will provide")
+      call fld_list_add(fldsToOcn_num, fldsToOcn,"eastward_partitioned_stokes_drift_2", "will provide")
+      call fld_list_add(fldsToOcn_num, fldsToOcn,"northward_partitioned_stokes_drift_2", "will provide")
+      call fld_list_add(fldsToOcn_num, fldsToOcn,"eastward_partitioned_stokes_drift_3", "will provide")
+      call fld_list_add(fldsToOcn_num, fldsToOcn,"northward_partitioned_stokes_drift_3", "will provide")
     endif !UseWaves
 
 !--------- export fields -------------
