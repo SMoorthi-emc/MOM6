@@ -531,6 +531,7 @@ module mom_cap_mod
 
     rc = ESMF_SUCCESS
 
+    write(*,*) 'JDM MOM6 InitializeP0'
     ! Switch to IPDv01 by filtering all other phaseMap entries
     call NUOPC_CompFilterPhaseMap(gcomp, ESMF_METHOD_INITIALIZE, &
       acceptStringList=(/"IPDv01p"/), rc=rc)
@@ -645,6 +646,7 @@ module mom_cap_mod
 
     rc = ESMF_SUCCESS
 
+    write(*,*) 'JDM MOM6 Initialize Adv'
     allocate(Ice_ocean_boundary)
     !allocate(Ocean_state) ! ocean_model_init allocate this pointer
     allocate(Ocean_sfc)
@@ -830,6 +832,8 @@ module mom_cap_mod
     character(len=*),parameter  :: subname='(mom_cap:InitializeRealize)'
     
     rc = ESMF_SUCCESS
+
+    write(*,*) 'JDM MOM6 Init Realize'
 
     call ESMF_GridCompGetInternalState(gcomp, ocean_internalstate, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1370,6 +1374,7 @@ module mom_cap_mod
     character(len=*),parameter  :: subname='(mom_cap:ModelAdvance)'
 
 
+    write(*,*) 'JDM MOM6 Model Advance'
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
     
@@ -1435,8 +1440,10 @@ module mom_cap_mod
     Time_step_coupled = esmf2fms_time(timeStep)
     dt_cpld = dth*3600+dtm*60+dts
 
+    ! get forcing data from data_overide 
     call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled)
 
+    !this doesn't do anything? why is it here? 
     call external_coupler_sbc_before(Ice_ocean_boundary, Ocean_sfc, nc, dt_cpld )
 
     if(write_diagnostics) then
@@ -1554,6 +1561,15 @@ module mom_cap_mod
       dataPtr_stky2 = stky2
       dataPtr_stkx3 = stkx3
       dataPtr_stky3 = stky3
+ 
+      !update pointer value... 
+      Ocean_state%Waves%STKx0(:,:,1) = dataPtr_stkx1 
+      Ocean_state%Waves%STKy0(:,:,1) = dataPtr_stky1 
+      Ocean_state%Waves%STKx0(:,:,2) = dataPtr_stkx2 
+      Ocean_state%Waves%STKy0(:,:,2) = dataPtr_stky2 
+      Ocean_state%Waves%STKx0(:,:,3) = dataPtr_stkx3 
+      Ocean_state%Waves%STKy0(:,:,3) = dataPtr_stky3 
+
       deallocate(stkx1,stkx2,stkx3,stky1,stky2,stky3)
     endif ! UseWaves
 
@@ -1694,12 +1710,12 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, import_slice, "inst_pres_height_surface" , "will provide", Ice_ocean_boundary%p )
     call dumpMomInternal(mom_grid_i, import_slice, "mass_of_overlying_sea_ice", "will provide", Ice_ocean_boundary%mi)
     if (Ocean_state%Waves%UseWaves) then
-      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_1", "will provide", Ocean_state%Waves%STKx0(:,:,1))
-      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_1", "will provide", Ocean_state%Waves%STKy0(:,:,1))
-      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_2", "will provide", Ocean_state%Waves%STKx0(:,:,2))
-      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_2", "will provide", Ocean_state%Waves%STKy0(:,:,2))
-      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_3", "will provide", Ocean_state%Waves%STKx0(:,:,3))
-      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_3", "will provide", Ocean_state%Waves%STKy0(:,:,3))
+      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_1", "will provide",dataPtr_stkx1)! Ocean_state%Waves%STKx0(:,:,1))
+      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_1", "will provide",dataPtr_stky1)! Ocean_state%Waves%STKy0(:,:,1))
+      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_2", "will provide",dataPtr_stkx2)! Ocean_state%Waves%STKx0(:,:,2))
+      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_2", "will provide",dataPtr_stky2)! Ocean_state%Waves%STKy0(:,:,2))
+      call dumpMomInternal(mom_grid_i, import_slice,  "eastward_partitioned_stokes_drift_3", "will provide",dataPtr_stkx3)! Ocean_state%Waves%STKx0(:,:,3))
+      call dumpMomInternal(mom_grid_i, import_slice, "northward_partitioned_stokes_drift_3", "will provide",dataPtr_stky3)! Ocean_state%Waves%STKy0(:,:,3))
     endif !UseWaves
 
 
