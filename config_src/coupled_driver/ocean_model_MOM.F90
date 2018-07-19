@@ -49,8 +49,6 @@ use MOM_time_manager, only : operator(<), real_to_time_type, time_type_to_real
 use MOM_tracer_flow_control, only : call_tracer_register, tracer_flow_control_init
 use MOM_tracer_flow_control, only : call_tracer_flux_init
 use MOM_variables, only : surface
-! added for access to MLD
-!use MOM_variables, only : vertvisc_type
 use MOM_verticalGrid, only : verticalGrid_type
 use MOM_ice_shelf, only : initialize_ice_shelf, shelf_calc_flux, ice_shelf_CS
 use MOM_ice_shelf, only : ice_shelf_end, ice_shelf_save_restart
@@ -199,8 +197,6 @@ type, public :: ocean_state_type ! JW: remove private so that CAP can write out 
                               !! timesteps are taken per thermodynamic step.
   type(surface)   :: sfc_state !< A structure containing pointers to
                               !! the ocean surface state fields.
-
-  !type(vertvisc_type) :: visc
 
   type(ocean_grid_type), pointer :: &
     grid => NULL()            !< A pointer to a grid structure containing metrics
@@ -1012,7 +1008,6 @@ subroutine convert_state_to_ocean_type(sfc_state, Ocean_sfc, G, &
 
   do j=jsc_bnd,jec_bnd ; do i=isc_bnd,iec_bnd
     Ocean_sfc%mld(i,j) = sfc_state%Hml(i+i0,j+j0)
-  !  Ocean_sfc%mld(i,j) = vertvisc_type%MLD(i+i0,j+j0)
   enddo ; enddo
 
   if (associated(sfc_state%frazil)) then
@@ -1173,7 +1168,8 @@ subroutine ocean_model_data2D_get(OS,Ocean, name, array2D,isc,jsc)
 
   g_isc = g_isc-g_isd+1 ; g_iec = g_iec-g_isd+1 ; g_jsc = g_jsc-g_jsd+1 ; g_jec = g_jec-g_jsd+1
 
-
+  ! gives 5,94,5,76==>90x72
+  !print *,' ZZ',g_isc,g_iec,g_jsc,g_jec
   select case(name)
   case('area')
      array2D(isc:,jsc:) = OS%grid%areaT(g_isc:g_iec,g_jsc:g_jec)
@@ -1185,6 +1181,12 @@ subroutine ocean_model_data2D_get(OS,Ocean, name, array2D,isc,jsc)
 !     enddo; enddo
   case('t_surf')
      array2D(isc:,jsc:) = Ocean%t_surf(isc:,jsc:)-CELSIUS_KELVIN_OFFSET
+  !produces global bounds in cap 
+  !case(   'mld')
+  !   array2D(isc:,jsc:) = OS%sfc_state%Hml(g_isc:g_iec,g_jsc:g_jec)
+  !also produces global bounds in cap! 
+  !case('mld')
+  !   array2D(isc:,jsc:) = OS%sfc_state%Hml(isc:,jsc:)
   case('t_pme')
      array2D(isc:,jsc:) = Ocean%t_surf(isc:,jsc:)-CELSIUS_KELVIN_OFFSET
   case('t_runoff')

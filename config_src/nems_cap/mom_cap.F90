@@ -744,6 +744,7 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
+    !call MOM_FieldsSetup(ice_ocean_boundary, ocean_sfc, Ocean_state)
     call MOM_FieldsSetup(ice_ocean_boundary, ocean_sfc)
 
     call MOM_AdvertiseFields(importState, fldsToOcn_num, fldsToOcn, rc)
@@ -768,8 +769,8 @@ module mom_cap_mod
     call calculate_rot_angle(Ocean_state, ocean_sfc, &
       ocean_internalstate%ptr%ocean_grid_ptr)
 #endif
-
-    write(*,*) '----- MOM initialization phase Advertise completed'
+    call ESMF_LogWrite("MOM initialization phase Advertise completed", ESMF_LOGMSG_INFO)
+    !write(*,*) '----- MOM initialization phase Advertise completed'
 
   end subroutine InitializeAdvertise
   
@@ -1310,7 +1311,8 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
-    write(*,*) '----- MOM initialization phase Realize completed'
+    !write(*,*) '----- MOM initialization phase Realize completed'
+    call ESMF_LogWrite("MOM initialization phase Advertise completed", ESMF_LOGMSG_INFO)
 
   end subroutine InitializeRealize
   
@@ -1347,6 +1349,7 @@ module mom_cap_mod
     integer :: i,j,i1,j1
     real(ESMF_KIND_R8), allocatable        :: ofld(:,:), ocz(:,:), ocm(:,:)
     real(ESMF_KIND_R8), allocatable        :: mmmf(:,:), mzmf(:,:)
+    !real(ESMF_KIND_R8), allocatable        ::  mld(:,:)
     integer :: nc
     real(ESMF_KIND_R8), pointer :: dataPtr_mask(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_mmmf(:,:)
@@ -1538,8 +1541,15 @@ module mom_cap_mod
     call update_ocean_model(Ice_ocean_boundary, Ocean_state, Ocean_sfc, Time, Time_step_coupled)
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM update_ocean_model: ")
 
+
    if(.not. ocean_solo) then
     allocate(ofld(isc:iec,jsc:jec))
+    write (msgString,*)' MOM6 ofld pointer bounds',&
+                       lbound(ofld,1),&
+                       ubound(ofld,1),&
+                       lbound(ofld,2),&
+                       ubound(ofld,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     call ocean_model_data_get(Ocean_state, Ocean_sfc, 'mask', ofld, isc, jsc)
     do j = lbnd2, ubnd2
@@ -1549,6 +1559,20 @@ module mom_cap_mod
        dataPtr_mask(i,j) = nint(ofld(i1,j1))
     enddo
     enddo
+    write (msgString,*)' MOM6 dataPtr_mask bounds',&
+                       lbound(dataPtr_mask,1),&
+                       ubound(dataPtr_mask,1),&
+                       lbound(dataPtr_mask,2),&
+                       ubound(dataPtr_mask,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' MOM6 mld get ofld bounds',&
+                       lbound(ofld,1),&
+                       ubound(ofld,1),&
+                       lbound(ofld,2),&
+                       ubound(ofld,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
     deallocate(ofld)
 
     ! Now rotate ocn current from tripolar grid back to lat/lon grid (CCW)
@@ -1570,11 +1594,23 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
     call State_getFldPtr(exportState,'mixed_layer_depth',dataPtr_mld,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    !like mask
+    !allocate(mld(isc:iec,jsc:jec))
+    !call ocean_model_data_get(Ocean_state, Ocean_sfc,  'mld', mld, isc, jsc)
+    !do j = lbound(mld,2),ubound(mld,2)
+    ! do i = lbound(mld,1),ubound(mld,1)
+    !   dataPtr_mld(i,j) = mld(i,j)
+    !   print *,'ZZ',i,j,mld(i,j),dataPtr_mld(i,j)
+    ! enddo
+    !enddo
+    !deallocate(mld)
 
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
 
@@ -1600,18 +1636,18 @@ module mom_cap_mod
                        ubound(Ocean_state%sfc_state%Hml,2)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
-    !write (msgString,*)' MOM6 MLD (vertvisc) bounds',&
-    !                   lbound(Ocean_state%visc%MLD,1),&
-    !                   ubound(Ocean_state%visc%MLD,1),&
-    !                   lbound(Ocean_state%visc%MLD,2),&
-    !                   ubound(Ocean_state%visc%MLD,2)
-    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)' MOM6 mld pointer bounds',&
+                       lbound(dataPtr_mld,1),&
+                       ubound(dataPtr_mld,1),&
+                       lbound(dataPtr_mld,2),&
+                       ubound(dataPtr_mld,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
-    write (msgString,*)' MOM6 t_surf bounds',&
-                       lbound(Ocean_sfc%t_surf,1),&
-                       ubound(Ocean_sfc%t_surf,1),&
-                       lbound(Ocean_sfc%t_surf,2),&
-                       ubound(Ocean_sfc%t_surf,2)
+    write (msgString,*)' MOM6 SST bounds',&
+                       lbound(Ocean_state%sfc_state%SST,1),&
+                       ubound(Ocean_state%sfc_state%SST,1),&
+                       lbound(Ocean_state%sfc_state%SST,2),&
+                       ubound(Ocean_state%sfc_state%SST,2)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     write (msgString,*)' MOM6 Hml min,max,sum',&
@@ -1620,17 +1656,17 @@ module mom_cap_mod
                           sum(real(Ocean_state%sfc_state%Hml,4))
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
-    !write (msgString,*)' MOM6 MLD (vertvisc) min,max,sum',&
-    !                   minval(real(Ocean_state%visc%MLD,4)),&
-    !                   maxval(real(Ocean_state%visc%MLD,4)),&
-    !                      sum(real(Ocean_state%visc%MLD,4))
-    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-
-    write (msgString,*)' MOM6 t_surf min,max,sum',&
-                       minval(real(Ocean_sfc%t_surf,4)),&
-                       maxval(real(Ocean_sfc%t_surf,4)),&
-                          sum(real(Ocean_sfc%t_surf,4))
+    write (msgString,*)' MOM6 mld pointer min,max,sum',&
+                       minval(real(dataPtr_mld,4)),&
+                       maxval(real(dataPtr_mld,4)),&
+                          sum(real(dataPtr_mld,4))
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    !write (msgString,*)' MOM6 t_surf min,max,sum',&
+    !                   minval(real(Ocean_sfc%t_surf,4)),&
+    !                   maxval(real(Ocean_sfc%t_surf,4)),&
+    !                      sum(real(Ocean_sfc%t_surf,4))
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
    endif  ! not ocean_solo
 
     call ESMF_LogWrite("Before writing diagnostics", ESMF_LOGMSG_INFO, rc=rc)
@@ -1682,6 +1718,7 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "mld"   , "will provide", Ocean_sfc%mld)
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
+    call ESMF_LogWrite("MOM Model_advance completed", ESMF_LOGMSG_INFO)
   end subroutine ModelAdvance
 
   !> Called by NUOPC at the end of the run to clean up.
@@ -1704,7 +1741,8 @@ module mom_cap_mod
     character(len=64)                      :: timestamp
     character(len=*),parameter  :: subname='(mom_cap:ocean_model_finalize)'
 
-    write(*,*) 'MOM: --- finalize called ---'
+    !write(*,*) 'MOM: --- finalize called ---'
+    call ESMF_LogWrite("MOM: --- finalize started ---", ESMF_LOGMSG_INFO)
     rc = ESMF_SUCCESS
 
     call ESMF_GridCompGetInternalState(gcomp, ocean_internalstate, rc)
@@ -1913,6 +1951,8 @@ module mom_cap_mod
     integer :: lrc
     character(len=*),parameter :: subname='(mom_cap:State_GetFldPtr)'
 
+    call ESMF_LogWrite(trim(subname)//" started", ESMF_LOGMSG_INFO)
+
     call ESMF_StateGet(ST, itemName=trim(fldname), field=lfield, rc=lrc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1940,6 +1980,8 @@ module mom_cap_mod
     character(len=*),parameter  :: subname='(mom_cap:MOM_AdvertiseFields)'
 
     rc = ESMF_SUCCESS
+
+    call ESMF_LogWrite(trim(subname)//" started", ESMF_LOGMSG_INFO)
 
     do i = 1, nfields
 
@@ -1975,6 +2017,7 @@ module mom_cap_mod
  
     rc = ESMF_SUCCESS
 
+    call ESMF_LogWrite(trim(subname)//" started", ESMF_LOGMSG_INFO)
     do i = 1, nfields
 
       if (field_defs(i)%assoc) then
@@ -2038,10 +2081,15 @@ module mom_cap_mod
   !-----------------------------------------------------------------------------
 
   subroutine MOM_FieldsSetup(ice_ocean_boundary,ocean_sfc)
+  !subroutine MOM_FieldsSetup(ice_ocean_boundary,ocean_sfc,ocean_state)
     type(ice_ocean_boundary_type), intent(in)   :: Ice_ocean_boundary
     type(ocean_public_type), intent(in)         :: Ocean_sfc
+  !  type(ocean_state_type), intent(in)          :: Ocean_state
     character(len=*),parameter  :: subname='(mom_cap:MOM_FieldsSetup)'
+    
+    !real(ESMF_KIND_R8), pointer :: dataPtr_mld(:,:)
 
+    call ESMF_LogWrite(trim(subname)//" started", ESMF_LOGMSG_INFO)
   !!! fld_list_add(num, fldlist, stdname, transferOffer, data(optional), shortname(optional))
 
 !--------- import fields -------------
@@ -2078,6 +2126,7 @@ module mom_cap_mod
 !    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "ocn_current_jdir", "will provide")
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"   , "will provide", data=Ocean_sfc%sea_lev)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential"   , "will provide", data=Ocean_sfc%frazil)
+    !call fld_list_add(fldsFrOcn_num, fldsFrOcn, "mixed_layer_depth"   , "will provide", data=dataPtr_mld)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "mixed_layer_depth"   , "will provide", data=Ocean_sfc%mld)
 
   end subroutine MOM_FieldsSetup
