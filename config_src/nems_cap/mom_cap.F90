@@ -1075,6 +1075,9 @@ module mom_cap_mod
 
     call mpp_get_compute_domain(Ocean_sfc%domain, isc, iec, jsc, jec)
 
+  !    call mpp_get_compute_domains( domain, xbegin, xend, xsize, &
+  !                                                ybegin, yend, ysize )
+
     lbnd1 = lbound(dataPtr_mask,1)
     ubnd1 = ubound(dataPtr_mask,1)
     lbnd2 = lbound(dataPtr_mask,2)
@@ -1553,6 +1556,15 @@ module mom_cap_mod
                      + Ocean_grid%sin_rot(i1,j1)*dataPtr_stky3(i,j)
           stky3(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stky3(i,j) &
                      - Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx3(i,j)
+
+          Ocean_state%Waves%STKx0(i1,j1,1) = stkx1(i,j)
+          Ocean_state%Waves%STKy0(i1,j1,1) = stky1(i,j)
+          Ocean_state%Waves%STKx0(i1,j1,2) = stkx2(i,j)
+          Ocean_state%Waves%STKy0(i1,j1,2) = stky2(i,j)
+          Ocean_state%Waves%STKx0(i1,j1,3) = stkx3(i,j)
+          Ocean_state%Waves%STKy0(i1,j1,3) = stky3(i,j)
+
+
         enddo
       enddo
       dataPtr_stkx1 = stkx1
@@ -1562,13 +1574,33 @@ module mom_cap_mod
       dataPtr_stkx3 = stkx3
       dataPtr_stky3 = stky3
  
+
+   write(*,*) 'JDM MOMOM6: Min/Max Values 13:',minval(Ocean_state%Waves%STKx0(Ocean_state%grid%isdB:Ocean_state%grid%iedB,Ocean_state%grid%jsd:Ocean_state%grid%jed,:))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 14:',maxval(Ocean_state%Waves%STKx0(Ocean_state%grid%isdB:Ocean_state%grid%iedB,Ocean_state%grid%jsd:Ocean_state%grid%jed,:))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 17:',minval(Ocean_state%Waves%STKy0(Ocean_state%grid%isdB:Ocean_state%grid%iedB,Ocean_state%grid%jsd:Ocean_state%grid%jed,:))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 18:',maxval(Ocean_state%Waves%STKy0(Ocean_state%grid%isdB:Ocean_state%grid%iedB,Ocean_state%grid%jsd:Ocean_state%grid%jed,:))
+
+   write(*,*) 'JDM MOMOM6: Min/Max Values 31:',minval(dataPtr_stkx1(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 32:',maxval(dataPtr_stkx1(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 33:',minval(dataPtr_stkx2(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 34:',maxval(dataPtr_stkx2(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 35:',minval(dataPtr_stkx3(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 36:',maxval(dataPtr_stkx3(lbnd1:ubnd1,lbnd2:ubnd2))
+
+   write(*,*) 'JDM MOMOM6: Min/Max Values 31:',minval(dataPtr_stky1(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 32:',maxval(dataPtr_stky1(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 33:',minval(dataPtr_stky2(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 34:',maxval(dataPtr_stky2(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 35:',minval(dataPtr_stky3(lbnd1:ubnd1,lbnd2:ubnd2))
+   write(*,*) 'JDM MOMOM6: Min/Max Values 36:',maxval(dataPtr_stky3(lbnd1:ubnd1,lbnd2:ubnd2))
+
       !update pointer value... 
-      Ocean_state%Waves%STKx0(:,:,1) = dataPtr_stkx1 
-      Ocean_state%Waves%STKy0(:,:,1) = dataPtr_stky1 
-      Ocean_state%Waves%STKx0(:,:,2) = dataPtr_stkx2 
-      Ocean_state%Waves%STKy0(:,:,2) = dataPtr_stky2 
-      Ocean_state%Waves%STKx0(:,:,3) = dataPtr_stkx3 
-      Ocean_state%Waves%STKy0(:,:,3) = dataPtr_stky3 
+      !Ocean_state%Waves%STKx0(:,:,1) = dataPtr_stkx1 
+      !Ocean_state%Waves%STKy0(:,:,1) = dataPtr_stky1 
+      !Ocean_state%Waves%STKx0(:,:,2) = dataPtr_stkx2 
+      !Ocean_state%Waves%STKy0(:,:,2) = dataPtr_stky2 
+      !Ocean_state%Waves%STKx0(:,:,3) = dataPtr_stkx3 
+      !Ocean_state%Waves%STKy0(:,:,3) = dataPtr_stky3 
 
       deallocate(stkx1,stkx2,stkx3,stky1,stky2,stky3)
     endif ! UseWaves
