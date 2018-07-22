@@ -531,7 +531,6 @@ module mom_cap_mod
 
     rc = ESMF_SUCCESS
 
-    write(*,*) 'JDM MOM6 InitializeP0'
     ! Switch to IPDv01 by filtering all other phaseMap entries
     call NUOPC_CompFilterPhaseMap(gcomp, ESMF_METHOD_INITIALIZE, &
       acceptStringList=(/"IPDv01p"/), rc=rc)
@@ -646,7 +645,6 @@ module mom_cap_mod
 
     rc = ESMF_SUCCESS
 
-    write(*,*) 'JDM MOM6 Initialize Adv'
     allocate(Ice_ocean_boundary)
     !allocate(Ocean_state) ! ocean_model_init allocate this pointer
     allocate(Ocean_sfc)
@@ -832,8 +830,6 @@ module mom_cap_mod
     character(len=*),parameter  :: subname='(mom_cap:InitializeRealize)'
     
     rc = ESMF_SUCCESS
-
-    write(*,*) 'JDM MOM6 Init Realize'
 
     call ESMF_GridCompGetInternalState(gcomp, ocean_internalstate, rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1376,8 +1372,6 @@ module mom_cap_mod
     character(240)              :: msgString
     character(len=*),parameter  :: subname='(mom_cap:ModelAdvance)'
 
-
-    write(*,*) 'JDM MOM6 Model Advance'
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
     
@@ -1557,13 +1551,12 @@ module mom_cap_mod
           stky3(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stky3(i,j) &
                      - Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx3(i,j)
 
-          Ocean_state%Waves%STKx0(i1,j1,1) = stkx1(i,j)
-          Ocean_state%Waves%STKy0(i1,j1,1) = stky1(i,j)
-          Ocean_state%Waves%STKx0(i1,j1,2) = stkx2(i,j)
-          Ocean_state%Waves%STKy0(i1,j1,2) = stky2(i,j)
-          Ocean_state%Waves%STKx0(i1,j1,3) = stkx3(i,j)
-          Ocean_state%Waves%STKy0(i1,j1,3) = stky3(i,j)
-
+          Ocean_state%Waves%STKx0(i-1+Ocean_state%grid%iscb,j-1+Ocean_state%grid%jscb,1) = stkx1(i,j)
+          Ocean_state%Waves%STKy0(i-1+Ocean_state%grid%iscb,j-1+Ocean_state%grid%jscb,1) = stky1(i,j)
+          Ocean_state%Waves%STKx0(i-1+Ocean_state%grid%iscb,j-1+Ocean_state%grid%jscb,2) = stkx2(i,j)
+          Ocean_state%Waves%STKy0(i-1+Ocean_state%grid%iscb,j-1+Ocean_state%grid%jscb,2) = stky2(i,j)
+          Ocean_state%Waves%STKx0(i-1+Ocean_state%grid%iscb,j-1+Ocean_state%grid%jscb,3) = stkx3(i,j)
+          Ocean_state%Waves%STKy0(i-1+Ocean_state%grid%iscb,j-1+Ocean_state%grid%jscb,3) = stky3(i,j)
 
         enddo
       enddo
@@ -1574,34 +1567,6 @@ module mom_cap_mod
       dataPtr_stkx3 = stkx3
       dataPtr_stky3 = stky3
  
-
-   write(*,*) 'JDM MOMOM6: Min/Max Values 13:',minval(Ocean_state%Waves%STKx0(Ocean_state%grid%isdB:Ocean_state%grid%iedB,Ocean_state%grid%jsd:Ocean_state%grid%jed,:))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 14:',maxval(Ocean_state%Waves%STKx0(Ocean_state%grid%isdB:Ocean_state%grid%iedB,Ocean_state%grid%jsd:Ocean_state%grid%jed,:))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 17:',minval(Ocean_state%Waves%STKy0(Ocean_state%grid%isdB:Ocean_state%grid%iedB,Ocean_state%grid%jsd:Ocean_state%grid%jed,:))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 18:',maxval(Ocean_state%Waves%STKy0(Ocean_state%grid%isdB:Ocean_state%grid%iedB,Ocean_state%grid%jsd:Ocean_state%grid%jed,:))
-
-   write(*,*) 'JDM MOMOM6: Min/Max Values 31:',minval(dataPtr_stkx1(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 32:',maxval(dataPtr_stkx1(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 33:',minval(dataPtr_stkx2(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 34:',maxval(dataPtr_stkx2(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 35:',minval(dataPtr_stkx3(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 36:',maxval(dataPtr_stkx3(lbnd1:ubnd1,lbnd2:ubnd2))
-
-   write(*,*) 'JDM MOMOM6: Min/Max Values 31:',minval(dataPtr_stky1(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 32:',maxval(dataPtr_stky1(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 33:',minval(dataPtr_stky2(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 34:',maxval(dataPtr_stky2(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 35:',minval(dataPtr_stky3(lbnd1:ubnd1,lbnd2:ubnd2))
-   write(*,*) 'JDM MOMOM6: Min/Max Values 36:',maxval(dataPtr_stky3(lbnd1:ubnd1,lbnd2:ubnd2))
-
-      !update pointer value... 
-      !Ocean_state%Waves%STKx0(:,:,1) = dataPtr_stkx1 
-      !Ocean_state%Waves%STKy0(:,:,1) = dataPtr_stky1 
-      !Ocean_state%Waves%STKx0(:,:,2) = dataPtr_stkx2 
-      !Ocean_state%Waves%STKy0(:,:,2) = dataPtr_stky2 
-      !Ocean_state%Waves%STKx0(:,:,3) = dataPtr_stkx3 
-      !Ocean_state%Waves%STKy0(:,:,3) = dataPtr_stky3 
-
       deallocate(stkx1,stkx2,stkx3,stky1,stky2,stky3)
     endif ! UseWaves
 
@@ -2155,11 +2120,6 @@ module mom_cap_mod
       if (NumBands.ne.3) then
          write(*,*) 'WARNING: NumBands is hardcoded to 3, if not 3 abort!'
       endif 
-      !call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_1", "will provide",  data=Ocean_state%Waves%STKx0(:,:,1))
-      !call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_1", "will provide", data=Ocean_state%Waves%STKy0(:,:,1))
-      !call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_2", "will provide",  data=Ocean_state%Waves%STKx0(:,:,2))
-      !call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_2", "will provide", data=Ocean_state%Waves%STKy0(:,:,2))
-      !call fld_list_add(fldsToOcn_num, fldsToOcn, "eastward_partitioned_stokes_drift_3", "will provide",  data=Ocean_state%Waves%STKx0(:,:,3))
       !call fld_list_add(fldsToOcn_num, fldsToOcn, "northward_partitioned_stokes_drift_3", "will provide", data=Ocean_state%Waves%STKy0(:,:,3))
       call fld_list_add(fldsToOcn_num, fldsToOcn,"eastward_partitioned_stokes_drift_1", "will provide")
       call fld_list_add(fldsToOcn_num, fldsToOcn,"northward_partitioned_stokes_drift_1", "will provide")
