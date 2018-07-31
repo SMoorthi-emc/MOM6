@@ -1637,6 +1637,7 @@ module mom_cap_mod
     ! ocean takes 4 timesteps for each coupling timestep
     ! here, dt_therm=3600 and cpling is 1800 ??
 
+    ! does not work
     !call extract_member_EOS(EOS,dTFr_dS=tfrz_s)
     !print *,'XXYY',tfrz_s
 
@@ -2119,7 +2120,17 @@ module mom_cap_mod
     character(len=*),parameter  :: subname='(mom_cap:MOM_FieldsSetup)'
     character(240)              :: msgString
 
-    real(ESMF_KIND_R8), pointer :: dataPtr_frzmlt(:,:)
+    integer :: lb1,ub1,lb2,ub2
+    real(ESMF_KIND_R8), allocatable :: frzmlt(:,:)
+    !real(ESMF_KIND_R8), pointer     :: dataPtr_frzmlt(:,:)
+
+    lb1 = lbound(Ocean_sfc%frazil,1)
+    ub1 = ubound(Ocean_sfc%frazil,1)
+    lb2 = lbound(Ocean_sfc%frazil,2)
+    ub2 = ubound(Ocean_sfc%frazil,2)
+    allocate(frzmlt(lb1:ub1,lb2:ub2))
+    frzmlt = 0.0
+    !dataPtr_frzmlt = frzmlt
 
     call ESMF_LogWrite(trim(subname)//" started", ESMF_LOGMSG_INFO)
   !!! fld_list_add(num, fldlist, stdname, transferOffer, data(optional), shortname(optional))
@@ -2131,12 +2142,26 @@ module mom_cap_mod
                        ubound(Ocean_sfc%frazil,2)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
-    write (msgString,*)' MOM6 SetUp pointer bounds frzmlt',&
-                       lbound(dataPtr_frzmlt,1),&
-                       ubound(dataPtr_frzmlt,1),&
-                       lbound(dataPtr_frzmlt,2),&
-                       ubound(dataPtr_frzmlt,2)
+    !write (msgString,*)' MOM6 SetUp pointer bounds frzmlt',&
+    !                   lbound(dataPtr_frzmlt,1),&
+    !                   ubound(dataPtr_frzmlt,1),&
+    !                   lbound(dataPtr_frzmlt,2),&
+    !                   ubound(dataPtr_frzmlt,2)
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+
+    write (msgString,*)' MOM6 SetUp array bounds frzmlt',&
+                       lbound(frzmlt,1),&
+                       ubound(frzmlt,1),&
+                       lbound(frzmlt,2),&
+                       ubound(frzmlt,2)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+
+    !write (msgString,*)' MOM6 SetUp pointer bounds frzmlt',&
+    !                   lbound(dataPtr_frzmlt,1),&
+    !                   ubound(dataPtr_frzmlt,1),&
+    !                   lbound(dataPtr_frzmlt,2),&
+    !                   ubound(dataPtr_frzmlt,2)
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
 !--------- import fields -------------
 
@@ -2173,9 +2198,10 @@ module mom_cap_mod
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"   , "will provide", data=Ocean_sfc%sea_lev)
     !call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential"   , "will provide", data=Ocean_sfc%frazil)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "accum_heat_frazil", "will provide", data=Ocean_sfc%frazil)
-    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=dataPtr_frzmlt)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=frzmlt)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "mixed_layer_depth"   , "will provide", data=Ocean_sfc%mld)
 
+     deallocate(frzmlt)
   end subroutine MOM_FieldsSetup
 
   !-----------------------------------------------------------------------------
