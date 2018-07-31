@@ -1027,8 +1027,6 @@ subroutine ocean_model_data2D_get(OS, Ocean, name, array2D, isc, jsc)
 
   g_isc = g_isc-g_isd+1 ; g_iec = g_iec-g_isd+1 ; g_jsc = g_jsc-g_jsd+1 ; g_jec = g_jec-g_jsd+1
 
-  ! gives 5,94,5,76==>90x72
-  !print *,' ZZ',g_isc,g_iec,g_jsc,g_jec
   select case(name)
   case('area')
      array2D(isc:,jsc:) = OS%grid%areaT(g_isc:g_iec,g_jsc:g_jec)
@@ -1040,12 +1038,6 @@ subroutine ocean_model_data2D_get(OS, Ocean, name, array2D, isc, jsc)
 !     enddo ; enddo
   case('t_surf')
      array2D(isc:,jsc:) = Ocean%t_surf(isc:,jsc:)-CELSIUS_KELVIN_OFFSET
-  !produces global bounds in cap 
-  !case(   'mld')
-  !   array2D(isc:,jsc:) = OS%sfc_state%Hml(g_isc:g_iec,g_jsc:g_jec)
-  !also produces global bounds in cap! 
-  !case('mld')
-  !   array2D(isc:,jsc:) = OS%sfc_state%Hml(isc:,jsc:)
   case('t_pme')
      array2D(isc:,jsc:) = Ocean%t_surf(isc:,jsc:)-CELSIUS_KELVIN_OFFSET
   case('t_runoff')

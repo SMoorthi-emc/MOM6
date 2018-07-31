@@ -387,7 +387,7 @@ module mom_cap_mod
   use MOM_restart,              only: save_restart
   ! for freeze melt
   use MOM_constants,            only: CELSIUS_KELVIN_OFFSET
-  use MOM_EOS,                  only: EOS_type
+  use MOM_EOS,                  only: EOS_type, extract_member_EOS
 #else
   use ocean_types_mod,          only: ice_ocean_boundary_type, ocean_grid_type
 #endif
@@ -821,7 +821,6 @@ module mom_cap_mod
     logical                                :: found
     real(ESMF_KIND_R8), allocatable        :: ofld(:,:), gfld(:,:)
     real(ESMF_KIND_R8), pointer            :: t_surf(:,:)
-    real(ESMF_KIND_R8), pointer            ::    mld(:,:)
     integer(ESMF_KIND_I4), pointer         :: dataPtr_mask(:,:)
     real(ESMF_KIND_R8), pointer            :: dataPtr_area(:,:)
     real(ESMF_KIND_R8), pointer            :: dataPtr_xcen(:,:)
@@ -829,7 +828,6 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer            :: dataPtr_xcor(:,:)
     real(ESMF_KIND_R8), pointer            :: dataPtr_ycor(:,:)
     type(ESMF_Field)                       :: field_t_surf
-    type(ESMF_Field)                       :: field_mld
 
     character(len=*),parameter  :: subname='(mom_cap:InitializeRealize)'
     
@@ -1308,44 +1306,6 @@ module mom_cap_mod
 
       deallocate(ofld)
     endif
-#ifdef test
-    call ESMF_StateGet(exportState, itemSearch="mixed_layer_depth", itemCount=icount, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! Do mld initialization if it's part of export state
-    if(icount /= 0) then
-      call ESMF_StateGet(exportState, itemName='mixed_layer_depth', field=field_mld, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-      call ESMF_FieldGet(field_mld, localDe=0, farrayPtr=mld, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
-
-      call ocean_model_data_get(Ocean_state, Ocean_sfc, 'mask', ofld, isc, jsc)
-
-      lbnd1 = lbound(mld,1)
-      ubnd1 = ubound(mld,1)
-      lbnd2 = lbound(mld,2)
-      ubnd2 = ubound(mld,2)
-
-      do j = lbnd2, ubnd2
-      do i = lbnd1, ubnd1
-         j1 = j - lbnd2 + jsc
-         i1 = i - lbnd1 + isc
-         if (ofld(i1,j1) == 0.) mld(i,j) = 1.0
-      enddo
-      enddo
-
-      deallocate(ofld)
-    endif
-#endif
 
     call NUOPC_Write(exportState, fileNamePrefix='init_field_ocn_export_', &
       timeslice=1, relaxedFlag=.true., rc=rc) 
@@ -1407,6 +1367,7 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer :: dataPtr_sensi(:,:)
 
     real(kind=ESMF_KIND_R8) :: hfrz, t2f, tfrz, smxl, tmxl, ssfi
+    !real(kind=ESMF_KIND_R8) :: tfrz_s
     real(kind=ESMF_KIND_R8) :: thkfrz = 20.0   ! maximum thickness of near-surface freezing zone (m)
     ! need to get following two from MOM
     real(kind=ESMF_KIND_R8) :: tfrz_s = -0.054 ! gradient of ice melting point (degC/psu)
@@ -1417,6 +1378,8 @@ module mom_cap_mod
     type(ocean_grid_type), pointer :: Ocean_grid
     character(240)              :: msgString
     character(len=*),parameter  :: subname='(mom_cap:ModelAdvance)'
+
+    type(EOS_type), pointer :: EOS !< Pointer to equation of state used in the model
 
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
@@ -1664,22 +1627,31 @@ module mom_cap_mod
                         real(dataPtr_frazil(ijloc(1),ijloc(2)),4)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
+    write (msgString,*)' MOM6 Tmix,Smix,MLD at maxloc ',ijloc,&
+                        real(dataPtr_tmix(ijloc(1),ijloc(2)),4),&
+                        real(dataPtr_smix(ijloc(1),ijloc(2)),4),&
+                        real(dataPtr_mld(ijloc(1),ijloc(2)),4)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     ! in hycom cap, cplfrq = nint(ocn_cpl_frq*(86400/baclin) where
     ! ocn_cpl_frq = 1800s; baclin=450 ==> cplfrq = 4
     ! ocean takes 4 timesteps for each coupling timestep
     ! here, dt_therm=3600 and cpling is 1800 ??
+
+    ! does not work
+    !call extract_member_EOS(EOS,dTFr_dS=tfrz_s)
+    !print *,'XXYY',tfrz_s
+
     dataPtr_frzmlt = 0.0
     do j  = lbnd2, ubnd2
       do i = lbnd1, ubnd1
         j1 = j - lbnd2 + jsc  ! work around local vs global indexing
         i1 = i - lbnd1 + isc
         hfrz = min( thkfrz, dataPtr_mld(i,j) )
-        !t2f  = (Ocean_state%C_p*hfrz*rho)/dt_cpld    ! W/m2 deg-1
-        t2f  = (Ocean_state%C_p*hfrz)/dt_cpld    ! ??
+        t2f  = (Ocean_state%C_p*hfrz*rho)/dt_cpld    ! W/m2 deg-1
+        !t2f  = (Ocean_state%C_p*hfrz)/dt_cpld    ! ??
         smxl = dataPtr_smix(i,j)
         tmxl = dataPtr_tmix(i,j) - CELSIUS_KELVIN_OFFSET
-        tfrz = smxl*tfrz_s                             !salinity dependent freezing point
-        !tfrz = smxl*EOS_type%dTFr_dS                   !salinity dependent freezing point
+        tfrz = smxl*tfrz_s                             !salinity dependent freezing point,degC
         ssfi = (tfrz-tmxl)*t2f*dataPtr_mask(i,j)       !W/m^2 into ocean
  
         !dataPtr_frzmlt(i,j) = max(-1000.0,min(1000.0,ssfi))
@@ -1771,10 +1743,11 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
     call dumpMomInternal(mom_grid_i, export_slice, "mld"   , "will provide", Ocean_sfc%mld)
 #endif
-    export_slice = export_slice + 1
-    call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature"   , "will provide", Ocean_sfc%t_surf)
-    call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
-    call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    !export_slice = export_slice + 1
+    !call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature"   , "will provide", Ocean_sfc%t_surf)
+    !call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
+    !call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    !call dumpMomInternal(mom_grid_i, export_slice, "mixed_layer_depth"         , "will provide",      dataPtr_mld)
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
     call ESMF_LogWrite("MOM Model_advance completed", ESMF_LOGMSG_INFO)
@@ -2145,11 +2118,43 @@ module mom_cap_mod
     type(ocean_public_type), intent(in)         :: Ocean_sfc
   !  type(ocean_state_type), intent(in)          :: Ocean_state
     character(len=*),parameter  :: subname='(mom_cap:MOM_FieldsSetup)'
-    
-    real(ESMF_KIND_R8), pointer :: dataPtr_frzmlt(:,:)
+    character(240)              :: msgString
+
+    integer :: lb1,ub1,lb2,ub2
+    real(ESMF_KIND_R8), allocatable :: frzmlt(:,:)
+    !real(ESMF_KIND_R8), pointer     :: dataPtr_frzmlt(:,:)
+
+    lb1 = lbound(Ocean_sfc%frazil,1)
+    ub1 = ubound(Ocean_sfc%frazil,1)
+    lb2 = lbound(Ocean_sfc%frazil,2)
+    ub2 = ubound(Ocean_sfc%frazil,2)
+    allocate(frzmlt(lb1:ub1,lb2:ub2))
+    frzmlt = 0.0
+    !dataPtr_frzmlt = frzmlt
 
     call ESMF_LogWrite(trim(subname)//" started", ESMF_LOGMSG_INFO)
   !!! fld_list_add(num, fldlist, stdname, transferOffer, data(optional), shortname(optional))
+
+    write (msgString,*)' MOM6 SetUp pointer bounds frazil',&
+                       lbound(Ocean_sfc%frazil,1),&
+                       ubound(Ocean_sfc%frazil,1),&
+                       lbound(Ocean_sfc%frazil,2),&
+                       ubound(Ocean_sfc%frazil,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+
+    write (msgString,*)' MOM6 SetUp array bounds frzmlt',&
+                       lbound(frzmlt,1),&
+                       ubound(frzmlt,1),&
+                       lbound(frzmlt,2),&
+                       ubound(frzmlt,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
+
+    !write (msgString,*)' MOM6 SetUp pointer bounds frzmlt',&
+    !                   lbound(dataPtr_frzmlt,1),&
+    !                   ubound(dataPtr_frzmlt,1),&
+    !                   lbound(dataPtr_frzmlt,2),&
+    !                   ubound(dataPtr_frzmlt,2)
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
 !--------- import fields -------------
 
@@ -2186,9 +2191,10 @@ module mom_cap_mod
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"   , "will provide", data=Ocean_sfc%sea_lev)
     !call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential"   , "will provide", data=Ocean_sfc%frazil)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "accum_heat_frazil", "will provide", data=Ocean_sfc%frazil)
-    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=dataPtr_frzmlt)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=frzmlt)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "mixed_layer_depth"   , "will provide", data=Ocean_sfc%mld)
 
+     deallocate(frzmlt)
   end subroutine MOM_FieldsSetup
 
   !-----------------------------------------------------------------------------
