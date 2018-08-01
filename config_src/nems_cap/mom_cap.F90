@@ -747,7 +747,6 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
-    !call MOM_FieldsSetup(ice_ocean_boundary, ocean_sfc, Ocean_state)
     call MOM_FieldsSetup(ice_ocean_boundary, ocean_sfc)
 
     call MOM_AdvertiseFields(importState, fldsToOcn_num, fldsToOcn, rc)
@@ -1658,11 +1657,12 @@ module mom_cap_mod
         dataPtr_frzmlt(i,j) = max(-1000.0,ssfi)
       enddo
     enddo
-    !write (msgString,*)' MOM6 dataPtr_frzmlt minmaxsum before adding frazil',&
-    !                   minval(real(dataPtr_frzmlt,4)),&
-    !                   maxval(real(dataPtr_frzmlt,4)),&
-    !                      sum(real(dataPtr_frzmlt,4))
-    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)' MOM6 dataPtr_frzmlt minmaxsum before adding frazil',&
+                       minval(real(dataPtr_frzmlt,4)),&
+                       maxval(real(dataPtr_frzmlt,4)),&
+                          sum(real(dataPtr_frzmlt,4))
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
     write (msgString,*)' MOM6 dataPtr_frzmlt at maxloc before adding frazil',ijloc,&
                         real(dataPtr_frzmlt(ijloc(1),ijloc(2)),4)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
@@ -1743,11 +1743,12 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
     call dumpMomInternal(mom_grid_i, export_slice, "mld"   , "will provide", Ocean_sfc%mld)
 #endif
-    !export_slice = export_slice + 1
-    !call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature"   , "will provide", Ocean_sfc%t_surf)
-    !call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
-    !call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
-    !call dumpMomInternal(mom_grid_i, export_slice, "mixed_layer_depth"         , "will provide",      dataPtr_mld)
+    export_slice = export_slice + 1
+    call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature"   , "will provide", Ocean_sfc%t_surf)
+    call dumpMomInternal(mom_grid_i, export_slice, "s_surf"                    , "will provide", Ocean_sfc%s_surf)
+    call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
+    call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    call dumpMomInternal(mom_grid_i, export_slice, "mixed_layer_depth"         , "will provide",      dataPtr_mld)
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
     call ESMF_LogWrite("MOM Model_advance completed", ESMF_LOGMSG_INFO)
@@ -2113,48 +2114,31 @@ module mom_cap_mod
   !-----------------------------------------------------------------------------
 
   subroutine MOM_FieldsSetup(ice_ocean_boundary,ocean_sfc)
-  !subroutine MOM_FieldsSetup(ice_ocean_boundary,ocean_sfc,ocean_state)
     type(ice_ocean_boundary_type), intent(in)   :: Ice_ocean_boundary
     type(ocean_public_type), intent(in)         :: Ocean_sfc
-  !  type(ocean_state_type), intent(in)          :: Ocean_state
     character(len=*),parameter  :: subname='(mom_cap:MOM_FieldsSetup)'
     character(240)              :: msgString
 
-    integer :: lb1,ub1,lb2,ub2
-    real(ESMF_KIND_R8), allocatable :: frzmlt(:,:)
-    !real(ESMF_KIND_R8), pointer     :: dataPtr_frzmlt(:,:)
+    !integer :: lb1,ub1,lb2,ub2
+    real(ESMF_KIND_R8), pointer     :: dataPtr_frzmlt(:,:)
 
-    lb1 = lbound(Ocean_sfc%frazil,1)
-    ub1 = ubound(Ocean_sfc%frazil,1)
-    lb2 = lbound(Ocean_sfc%frazil,2)
-    ub2 = ubound(Ocean_sfc%frazil,2)
-    allocate(frzmlt(lb1:ub1,lb2:ub2))
-    frzmlt = 0.0
-    !dataPtr_frzmlt = frzmlt
+    ! ?actually allocating dataPtr_frzmlt causes model to stop at first time step
+    !lb1 = lbound(Ocean_sfc%frazil,1)
+    !ub1 = ubound(Ocean_sfc%frazil,1)
+    !lb2 = lbound(Ocean_sfc%frazil,2)
+    !ub2 = ubound(Ocean_sfc%frazil,2)
+    !allocate(dataPtr_frzmlt(lb1:ub1,lb2:ub2))
+    !dataPtr_frzmlt = 0.0
 
     call ESMF_LogWrite(trim(subname)//" started", ESMF_LOGMSG_INFO)
   !!! fld_list_add(num, fldlist, stdname, transferOffer, data(optional), shortname(optional))
 
-    write (msgString,*)' MOM6 SetUp pointer bounds frazil',&
-                       lbound(Ocean_sfc%frazil,1),&
-                       ubound(Ocean_sfc%frazil,1),&
-                       lbound(Ocean_sfc%frazil,2),&
-                       ubound(Ocean_sfc%frazil,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-
-    !write (msgString,*)' MOM6 SetUp pointer bounds frzmlt',&
-    !                   lbound(dataPtr_frzmlt,1),&
-    !                   ubound(dataPtr_frzmlt,1),&
-    !                   lbound(dataPtr_frzmlt,2),&
-    !                   ubound(dataPtr_frzmlt,2)
+    !write (msgString,*)' MOM6 SetUp pointer bounds frazil',&
+    !                   lbound(Ocean_sfc%frazil,1),&
+    !                   ubound(Ocean_sfc%frazil,1),&
+    !                   lbound(Ocean_sfc%frazil,2),&
+    !                   ubound(Ocean_sfc%frazil,2)
     !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
-
-    write (msgString,*)' MOM6 SetUp array bounds frzmlt',&
-                       lbound(frzmlt,1),&
-                       ubound(frzmlt,1),&
-                       lbound(frzmlt,2),&
-                       ubound(frzmlt,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO)
 
     !write (msgString,*)' MOM6 SetUp pointer bounds frzmlt',&
     !                   lbound(dataPtr_frzmlt,1),&
@@ -2198,10 +2182,10 @@ module mom_cap_mod
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"   , "will provide", data=Ocean_sfc%sea_lev)
     !call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential"   , "will provide", data=Ocean_sfc%frazil)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "accum_heat_frazil", "will provide", data=Ocean_sfc%frazil)
-    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=frzmlt)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=dataPtr_frzmlt)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "mixed_layer_depth"   , "will provide", data=Ocean_sfc%mld)
 
-     deallocate(frzmlt)
+    ! deallocate(dataPtr_frzmlt)
   end subroutine MOM_FieldsSetup
 
   !-----------------------------------------------------------------------------
