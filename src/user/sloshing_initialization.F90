@@ -1,4 +1,3 @@
-!> Initialization for the "sloshing" internal waves configuration.
 module sloshing_initialization
 
 ! This file is part of MOM6. See LICENSE.md for the license.
@@ -9,6 +8,9 @@ use MOM_error_handler, only : MOM_mesg, MOM_error, FATAL, is_root_pe
 use MOM_file_parser, only : get_param, param_file_type
 use MOM_get_input, only : directories
 use MOM_grid, only : ocean_grid_type
+use MOM_io, only : close_file, fieldtype, file_exists
+use MOM_io, only : open_file, read_data, read_axis_data, SINGLE_FILE
+use MOM_io, only : write_field, slasher
 use MOM_sponge, only : set_up_sponge_field, initialize_sponge, sponge_CS
 use MOM_tracer_registry, only : tracer_registry_type
 use MOM_variables, only : thermo_var_ptrs
@@ -19,13 +21,18 @@ implicit none ; private
 
 #include <MOM_memory.h>
 
+! -----------------------------------------------------------------------------
 ! The following routines are visible to the outside world
+! -----------------------------------------------------------------------------
 public sloshing_initialize_topography
 public sloshing_initialize_thickness
 public sloshing_initialize_temperature_salinity
 
-character(len=40)  :: mdl = "sloshing_initialization" !< This module's name.
+character(len=40)  :: mdl = "sloshing_initialization" ! This module's name.
 
+! -----------------------------------------------------------------------------
+! This module contains the following routines
+! -----------------------------------------------------------------------------
 contains
 
 !> Initialization of topography.
@@ -97,7 +104,7 @@ subroutine sloshing_initialize_thickness ( h, G, GV, param_file, just_read_param
     ! Define uniform interfaces
     do k = 0,nz
       z_unif(k+1) = -real(k)/real(nz)
-    enddo
+    end do
 
     ! 1. Define stratification
     n = 3
@@ -111,19 +118,19 @@ subroutine sloshing_initialize_thickness ( h, G, GV, param_file, just_read_param
 
       x = -z_unif(k)
 
-      if ( x <= x1 ) then
-        t = y1*x/x1
-      elseif ( (x > x1 ) .and. ( x < x2 )) then
+      if ( x .le. x1 ) then
+        t = y1*x/x1;
+      else if ( (x .gt. x1 ) .and. ( x .lt. x2 )) then
         t = y1 + (y2-y1) * (x-x1) / (x2-x1)
       else
         t = y2 + (1.0-y2) * (x-x2) / (1.0-x2)
-      endif
+      end if
 
       t = - z_unif(k)
 
       z_inter(k) = -t * G%max_depth
 
-    enddo
+    end do
 
     ! 2. Define displacement
     a0 = 75.0;      ! Displacement amplitude (meters)
@@ -132,19 +139,19 @@ subroutine sloshing_initialize_thickness ( h, G, GV, param_file, just_read_param
       weight_z = - 4.0 * ( z_unif(k) + 0.5 )**2 + 1
 
       x = G%geoLonT(i,j) / G%len_lon
-      displ(k) = a0 * cos(acos(-1.0)*x) + weight_z
+      displ(k) = a0 * cos(acos(-1.0)*x) + weight_z;
 
-      if ( k == 1 ) then
+      if ( k .EQ. 1 ) then
         displ(k) = 0.0
-      endif
+      end if
 
-      if ( k == nz+1 ) then
+      if ( k .EQ. nz+1 ) then
         displ(k) = 0.0
-      endif
+      end if
 
       z_inter(k) = z_inter(k) + displ(k)
 
-    enddo
+    end do
 
     ! 3. The last interface must coincide with the seabed
     z_inter(nz+1) = -G%bathyT(i,j)
@@ -153,11 +160,11 @@ subroutine sloshing_initialize_thickness ( h, G, GV, param_file, just_read_param
     ! are strictly positive
     do k = nz,1,-1
 
-      if ( z_inter(k) < (z_inter(k+1) + GV%Angstrom_Z) ) then
+      if ( z_inter(k) .LT. (z_inter(k+1) + GV%Angstrom_Z) ) then
         z_inter(k) = z_inter(k+1) + GV%Angstrom_Z
-      endif
+      end if
 
-    enddo
+    end do
 
     ! 4. Define layers
     total_height = 0.0
@@ -165,13 +172,14 @@ subroutine sloshing_initialize_thickness ( h, G, GV, param_file, just_read_param
       h(i,j,k) = GV%m_to_H * (z_inter(k) - z_inter(k+1))
 
       total_height = total_height + h(i,j,k)
-    enddo
+    end do
 
   enddo ; enddo
 
 end subroutine sloshing_initialize_thickness
 
 
+!------------------------------------------------------------------------------
 !> Initialization of temperature and salinity
 !!
 !! This subroutine initializes linear profiles for T and S according to
@@ -229,9 +237,9 @@ subroutine sloshing_initialize_temperature_salinity ( T, S, h, G, GV, param_file
   !S(:,:,1) = S_ref
   !do k = 2,G%ke
   !  S(:,:,k) = S(:,:,k-1) + delta_S
-  !enddo
+  !end do
 
-  deltah = G%max_depth / nz
+  deltah = G%max_depth / nz;
   do j=js,je ; do i=is,ie
     xi0 = 0.0
     do k = 1,nz
@@ -247,7 +255,7 @@ subroutine sloshing_initialize_temperature_salinity ( T, S, h, G, GV, param_file
   T(:,:,1) = T_ref
   do k = 2,G%ke
     T(:,:,k) = T(:,:,k-1) + delta_T
-  enddo
+  end do
   kdelta = 2
   T(:,:,G%ke/2 - (kdelta-1):G%ke/2 + kdelta) = 1.0
 

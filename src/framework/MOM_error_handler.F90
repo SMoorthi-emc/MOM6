@@ -1,7 +1,15 @@
-!> Routines for error handling and I/O management
 module MOM_error_handler
 
 ! This file is part of MOM6. See LICENSE.md for the license.
+
+!********+*********+*********+*********+*********+*********+*********+**
+!*                                                                     *
+!*  By R. Hallberg, 2005-2012.                                         *
+!*                                                                     *
+!*    This module wraps the mpp_mod error handling code and the        *
+!*  mpp functions stdlog() and stdout() that return open unit numbers. *
+!*                                                                     *
+!********+*********+*********+*********+*********+*********+*********+**
 
 use mpp_mod, only : mpp_error, NOTE, WARNING, FATAL
 use mpp_mod, only : mpp_pe, mpp_root_pe, stdlog, stdout
@@ -13,19 +21,18 @@ public MOM_set_verbosity, MOM_get_verbosity, MOM_verbose_enough
 public callTree_showQuery, callTree_enter, callTree_leave, callTree_waypoint
 public assert
 
+! Verbosity level:
+!  0 - FATAL messages only
+!  1 - FATAL + WARNING messages only
+!  2 - FATAL + WARNING + NOTE messages only [default]
+!  3 - above + informational
+!  4 -
+!  5 -
+!  6 - above + call tree
+!  7 -
+!  8 -
+!  9 - anything and everything (also set with #define DEBUG)
 integer :: verbosity = 6
-!< Verbosity level:
-!!  0 - FATAL messages only
-!!  1 - FATAL + WARNING messages only
-!!  2 - FATAL + WARNING + NOTE messages only [default]
-!!  3 - above + informational
-!!  4 -
-!!  5 -
-!!  6 - above + call tree
-!!  7 -
-!!  8 -
-!!  9 - anything and everything (also set with DEBUG=True)
-
 !   Note that this module default will only hold until the
 ! VERBOSITY parameter is parsed and the given default imposed.
 ! We set it to 6 here so that the call tree will print before
@@ -34,12 +41,11 @@ integer :: verbosity = 6
 ! a type passed by argument (preferred for most data) for convenience
 ! and to reduce obfuscation of code
 
+! The level of calling within the call tree
 integer :: callTreeIndentLevel = 0
-!< The level of calling within the call tree
 
 contains
 
-!> This returns .true. if the current PE is the root PE.
 function is_root_pe()
   ! This returns .true. if the current PE is the root PE.
   logical :: is_root_pe
@@ -48,12 +54,10 @@ function is_root_pe()
   return
 end function is_root_pe
 
-!> This provides a convenient interface for writing an informative comment.
 subroutine MOM_mesg(message, verb, all_print)
-  character(len=*), intent(in)  :: message !< A message to write out
-  integer, optional, intent(in) :: verb !< A level of verbosity for this message
-  logical, optional, intent(in) :: all_print !< If present and true, any PEs are
-                                             !! able to write this message.
+  character(len=*), intent(in)  :: message
+  integer, optional, intent(in) :: verb
+  logical, optional, intent(in) :: all_print
   ! This provides a convenient interface for writing an informative comment.
   integer :: verb_msg
   logical :: write_msg
@@ -66,13 +70,10 @@ subroutine MOM_mesg(message, verb, all_print)
 
 end subroutine MOM_mesg
 
-!> This provides a convenient interface for writing an mpp_error message
-!! with run-time filter based on a verbosity.
 subroutine MOM_error(level, message, all_print)
-  integer,           intent(in) :: level !< The verbosity level of this message
-  character(len=*),  intent(in) :: message !< A message to write out
-  logical, optional, intent(in) :: all_print !< If present and true, any PEs are
-                                             !! able to write this message.
+  integer,           intent(in) :: level
+  character(len=*),  intent(in) :: message
+  logical, optional, intent(in) :: all_print
   ! This provides a convenient interface for writing an mpp_error message
   ! with run-time filter based on a verbosity.
   logical :: write_msg
@@ -92,9 +93,8 @@ subroutine MOM_error(level, message, all_print)
   end select
 end subroutine MOM_error
 
-!> This subroutine sets the level of verbosity filtering MOM error messages
 subroutine MOM_set_verbosity(verb)
-  integer, intent(in) :: verb !< A level of verbosity to set
+  integer, intent(in) :: verb
   character(len=80) :: msg
   if (verb>0 .and. verb<10) then
     verbosity=verb
@@ -104,16 +104,13 @@ subroutine MOM_set_verbosity(verb)
   endif
 end subroutine MOM_set_verbosity
 
-!> This subroutine gets the level of verbosity filtering MOM error messages
 function MOM_get_verbosity()
   integer :: MOM_get_verbosity
   MOM_get_verbosity = verbosity
 end function MOM_get_verbosity
 
-!> This tests whether the level of verbosity filtering MOM error messages is
-!! sufficient to write a message of verbosity level verb
 function MOM_verbose_enough(verb)
-  integer, intent(in) :: verb !< A level of verbosity to test
+  integer, intent(in) :: verb
   logical :: MOM_verbose_enough
   MOM_verbose_enough = (verbosity >= verb)
 end function MOM_verbose_enough
@@ -127,8 +124,8 @@ end function callTree_showQuery
 
 !> Writes a message about entering a subroutine if call tree reporting is active
 subroutine callTree_enter(mesg,n)
-  character(len=*),  intent(in) :: mesg !< Message to write
-  integer, optional, intent(in) :: n !< An optional integer to write at end of message
+  character(len=*)  :: mesg !< Message to write
+  integer, optional :: n !< An optional integer to write at end of message
   ! Local variables
   character(len=8) :: nAsString
   callTreeIndentLevel = callTreeIndentLevel + 1
@@ -158,8 +155,8 @@ end subroutine callTree_leave
 
 !> Writes a message about reaching a milestone if call tree reporting is active
 subroutine callTree_waypoint(mesg,n)
-  character(len=*),  intent(in) :: mesg !< Message to write
-  integer, optional, intent(in) :: n !< An optional integer to write at end of message
+  character(len=*) :: mesg !< Message to write
+  integer, optional :: n !< An optional integer to write at end of message
   ! Local variables
   character(len=8) :: nAsString
   if (callTreeIndentLevel<0) write(0,*) 'callTree_waypoint: error callTreeIndentLevel=',callTreeIndentLevel,trim(mesg)

@@ -34,13 +34,11 @@ type, public :: CVMix_conv_cs
   logical :: debug         !< If true, turn on debugging
 
   ! Daignostic handles and pointers
-  type(diag_ctrl), pointer :: diag => NULL() !< Pointer to diagnostics control structure
-  !>@{ Diagnostics handles
+  type(diag_ctrl), pointer :: diag => NULL()
   integer :: id_N2 = -1, id_kd_conv = -1, id_kv_conv = -1
-  !!@}
 
   ! Diagnostics arrays
-  real, allocatable, dimension(:,:,:) :: N2      !< Squared Brunt-Vaisala frequency (1/s2)
+  real, allocatable, dimension(:,:,:) :: N2         !< Squared Brunt-Vaisala frequency (1/s2)
   real, allocatable, dimension(:,:,:) :: kd_conv !< Diffusivity added by convection (m2/s)
   real, allocatable, dimension(:,:,:) :: kv_conv !< Viscosity added by convection (m2/s)
 
@@ -59,6 +57,7 @@ logical function CVMix_conv_init(Time, G, GV, param_file, diag, CS)
   type(param_file_type),   intent(in)    :: param_file !< Run-time parameter file handle
   type(diag_ctrl), target, intent(inout) :: diag       !< Diagnostics control structure.
   type(CVMix_conv_cs),    pointer        :: CS         !< This module's control structure.
+
   ! Local variables
   real    :: prandtl_conv !< Turbulent Prandtl number used in convective instabilities.
   logical :: useEPBL      !< If True, use the ePBL boundary layer scheme.
@@ -154,6 +153,7 @@ subroutine calculate_CVMix_conv(h, tv, G, GV, CS, hbl)
   type(CVMix_conv_cs),                            pointer :: CS !< The control structure returned
                                                                 !! by a previous call to CVMix_conv_init.
   real, dimension(:,:),                 optional, pointer :: hbl!< Depth of ocean boundary layer (m)
+
   ! local variables
   real, dimension(SZK_(G)) :: rho_lwr !< Adiabatic Water Density, this is a dummy
                                       !! variable since here convection is always
@@ -172,7 +172,7 @@ subroutine calculate_CVMix_conv(h, tv, G, GV, CS, hbl)
   rho_lwr(:) = 0.0; rho_1d(:) = 0.0
 
   if (.not. associated(hbl)) then
-    allocate(hbl(SZI_(G), SZJ_(G)))
+    allocate(hbl(SZI_(G), SZJ_(G)));
     hbl(:,:) = 0.0
   endif
 
@@ -212,7 +212,6 @@ subroutine calculate_CVMix_conv(h, tv, G, GV, CS, hbl)
         iFaceHeight(k+1) = iFaceHeight(k) - dh
       enddo
 
-      ! gets index of the level and interface above hbl
       kOBL = CVMix_kpp_compute_kOBL_depth(iFaceHeight, cellHeight,hbl(i,j))
 
       call CVMix_coeffs_conv(Mdiff_out=CS%kv_conv(i,j,:), &
@@ -258,10 +257,7 @@ end function CVMix_conv_is_used
 
 !> Clear pointers and dealocate memory
 subroutine CVMix_conv_end(CS)
-  type(CVMix_conv_cs), pointer :: CS !< Control structure for this module that
-                                     !! will be deallocated in this subroutine
-
-  if (.not. associated(CS)) return
+  type(CVMix_conv_cs), pointer :: CS ! Control structure
 
   deallocate(CS%N2)
   deallocate(CS%kd_conv)
@@ -269,5 +265,6 @@ subroutine CVMix_conv_end(CS)
   deallocate(CS)
 
 end subroutine CVMix_conv_end
+
 
 end module MOM_CVMix_conv
