@@ -545,6 +545,7 @@ subroutine step_MOM(forces, fluxes, sfc_state, Time_start, time_interval, CS, &
 
   if (therm_reset) then
     CS%time_in_thermo_cycle = 0.0
+    if (allocated(sfc_state%melt_potential)) sfc_state%melt_potential(:,:)  = 0.0
     if (associated(CS%tv%frazil))        CS%tv%frazil(:,:)        = 0.0
     if (associated(CS%tv%salt_deficit))  CS%tv%salt_deficit(:,:)  = 0.0
     if (associated(CS%tv%TempxPmE))      CS%tv%TempxPmE(:,:)      = 0.0
@@ -2830,6 +2831,22 @@ subroutine extract_surface_state(CS, sfc_state)
       enddo ; enddo
     endif
   endif  ! (CS%Hmix >= 0.0)
+
+  if (allocated(sfc_state%melt_potential)) then
+    !$OMP parallel do default(shared)
+    do j=js,je ; do i=is,ie
+      ! set melt_potential to zero to avoid passing values set previously
+      if (G%mask2dT(i,j)>0.) then
+        ! calculate freezing pot. temp. @ surface
+        call calculate_TFreeze(sfc_state%SSS(i,j), 0.0, T_freeze, CS%tv%eqn_of_state)
+        ! time accumulated melt_potential, in J/m^2
+        sfc_state%melt_potential(i,j) = sfc_state%melt_potential(i,j) +  (CS%tv%C_p * CS%GV%Rho0 * &
+                                        (sfc_state%SST(i,j) - T_freeze) * CS%Hmix)
+      else
+          sfc_state%melt_potential(i,j) = 0.0
+      endif! G%mask2dT
+    enddo ; enddo
+  endif
 
   if (allocated(sfc_state%salt_deficit) .and. associated(CS%tv%salt_deficit)) then
     !$OMP parallel do default(shared)

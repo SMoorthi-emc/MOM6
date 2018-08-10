@@ -121,6 +121,7 @@ type, public ::  ocean_public_type
                         !! i.e. dzt(1) + eta_t + patm/rho0/grav (m)
     frazil =>NULL(), &  !< Accumulated heating (in Joules/m^2) from frazil
                         !! formation in the ocean.
+    melt_potential => NULL(), & !< Accumulated heat used to melt sea ice (in J/m^2)
     area => NULL()      !< cell area of the ocean surface, in m2.
   type(coupler_2d_bc_type) :: fields    !< A structure that may contain named
                                         !! arrays of tracer-related surface fields.
@@ -344,7 +345,7 @@ subroutine ocean_model_init(Ocean_sfc, OS, Time_init, Time_in, gas_fields_ocn)
   !   Consider using a run-time flag to determine whether to do the diagnostic
   ! vertical integrals, since the related 3-d sums are not negligible in cost.
   call allocate_surface_state(OS%sfc_state, OS%grid, use_temperature, &
-                              do_integrals=.true., gas_fields_ocn=gas_fields_ocn)
+                              do_integrals=.true., gas_fields_ocn=gas_fields_ocn, use_meltpot=.true.)
 
   call surface_forcing_init(Time_in, OS%grid, param_file, OS%diag, &
                             OS%forcing_CSp, OS%restore_salinity, OS%restore_temp)
@@ -780,6 +781,7 @@ subroutine initialize_ocean_public_type(input_domain, Ocean_sfc, diag, maskmap, 
              Ocean_sfc%v_surf (isc:iec,jsc:jec), &
              Ocean_sfc%sea_lev(isc:iec,jsc:jec), &
              Ocean_sfc%area   (isc:iec,jsc:jec), &
+             Ocean_sfc%melt_potential(isc:iec,jsc:jec), &
              Ocean_sfc%frazil (isc:iec,jsc:jec))
 
   Ocean_sfc%t_surf  = 0.0  ! time averaged sst (Kelvin) passed to atmosphere/ice model
@@ -788,6 +790,7 @@ subroutine initialize_ocean_public_type(input_domain, Ocean_sfc, diag, maskmap, 
   Ocean_sfc%v_surf  = 0.0  ! time averaged v-current (m/sec)  passed to atmosphere/ice models
   Ocean_sfc%sea_lev = 0.0  ! time averaged thickness of top model grid cell (m) plus patm/rho0/grav
   Ocean_sfc%frazil  = 0.0  ! time accumulated frazil (J/m^2) passed to ice model
+  Ocean_sfc%melt_potential  = 0.0  ! time accumulated melt potential (J/m^2) passed to ice model
   Ocean_sfc%area    = 0.0
   Ocean_sfc%axes    = diag%axesT1%handles !diag axes to be used by coupler tracer flux diagnostics
 
@@ -869,6 +872,12 @@ subroutine convert_state_to_ocean_type(sfc_state, Ocean_sfc, G, patm, press_to_z
   if (associated(sfc_state%frazil)) then
     do j=jsc_bnd,jec_bnd ; do i=isc_bnd,iec_bnd
       Ocean_sfc%frazil(i,j) = sfc_state%frazil(i+i0,j+j0)
+    enddo ; enddo
+  endif
+
+  if (associated(sfc_state%melt_potential)) then
+    do j=jsc_bnd,jec_bnd ; do i=isc_bnd,iec_bnd
+      Ocean_sfc%melt_potential(i,j) = sfc_state%melt_potential(i+i0,j+j0)
     enddo ; enddo
   endif
 
@@ -1104,6 +1113,7 @@ subroutine ocean_public_type_chksum(id, timestep, ocn)
   write(outunit,100) 'ocean%v_surf   ',mpp_chksum(ocn%v_surf )
   write(outunit,100) 'ocean%sea_lev  ',mpp_chksum(ocn%sea_lev)
   write(outunit,100) 'ocean%frazil   ',mpp_chksum(ocn%frazil )
+  write(outunit,100) 'ocean%melt_potential  ',mpp_chksum(ocn%melt_potential)
 
   call coupler_type_write_chksums(ocn%fields, outunit, 'ocean%')
 100 FORMAT("   CHECKSUM::",A20," = ",Z20)

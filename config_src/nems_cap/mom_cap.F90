@@ -439,6 +439,9 @@ module mom_cap_mod
   logical                 :: grid_attach_area = .false.
   integer(ESMF_KIND_I8)   :: restart_interval
 
+  !frzmlt
+  real(ESMF_KIND_R8), dimension(:,:), pointer :: dataPtr_frzmlt
+
   contains
   !-----------------------------------------------------------------------
   !------------------- Solo Ocean code starts here -----------------------
@@ -742,6 +745,21 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    ! fixfrzmlt
+    ! no internal state variable to point to
+    ! export variables defined DELOCAL indexing
+    ! Ocean_sfc%frazil fields at this point are on global bounds???
+    allocate(dataPtr_frzmlt(1:(iec-isc+1),1:(jec-jsc+1)))
+    dataPtr_frzmlt = 0.0
+
+    write (msgString,*)' Advertise dataPtr_frzmlt bounds',&
+                       lbound(dataPtr_frzmlt,1),&
+                       ubound(dataPtr_frzmlt,1),&
+                       lbound(dataPtr_frzmlt,2),&
+                       ubound(dataPtr_frzmlt,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    ! fixfrzmlt
 
     call MOM_FieldsSetup(ice_ocean_boundary, ocean_sfc)
 
@@ -1351,6 +1369,7 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer :: dataPtr_ocz(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_ocm(:,:) 
     real(ESMF_KIND_R8), pointer :: dataPtr_frazil(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr_melt_potential(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_evap(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_sensi(:,:)
     type(ocean_grid_type), pointer :: Ocean_grid
@@ -1558,13 +1577,30 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call State_getFldPtr(exportState,'freezing_melting_potential',dataPtr_frazil,rc=rc)
+    !call State_getFldPtr(exportState,'freezing_melting_potential',dataPtr_frazil,rc=rc)
+    ! fixfrzmlt
+    call State_getFldPtr(exportState,'accum_heat_frazil',dataPtr_frazil,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call State_getFldPtr(exportState,'accum_melt_potential',dataPtr_melt_potential,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call State_getFldPtr(exportState,'freezing_melting_potential',dataPtr_frzmlt,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
+    dataPtr_melt_potential = -dataPtr_melt_potential/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
+                                                             ! melt_potential, defined positive for T>Tfreeze
+                                                             ! so change sign 
+    dataPtr_frzmlt = dataPtr_frazil + dataPtr_melt_potential
+    ! fixfrzmlt
 
     ocz = dataPtr_ocz
     ocm = dataPtr_ocm
@@ -1594,7 +1630,8 @@ module mom_cap_mod
 
     call ESMF_LogWrite("Before calling sbc forcing", ESMF_LOGMSG_INFO, rc=rc)
     call external_coupler_sbc_after(Ice_ocean_boundary, Ocean_sfc, nc, dt_cpld )
-
+!override for testing
+!#ifdef test
     call ESMF_LogWrite("Before dumpMomInternal", ESMF_LOGMSG_INFO, rc=rc)
     !write(*,*) 'MOM: --- run phase called ---'
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
@@ -1624,6 +1661,11 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
+!#endif
+    call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
+    call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
+    call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    export_slice = export_slice + 1
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
@@ -1676,6 +1718,8 @@ module mom_cap_mod
     call ocean_model_end (Ocean_sfc, Ocean_State, Time)
     call diag_manager_end(Time )
     call field_manager_end
+
+    deallocate(dataPtr_frzmlt)
 
     call fms_io_exit
     call fms_end
@@ -2021,7 +2065,10 @@ module mom_cap_mod
 !    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "ocn_current_idir", "will provide")
 !    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "ocn_current_jdir", "will provide")
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"   , "will provide", data=Ocean_sfc%sea_lev)
-    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential"   , "will provide", data=Ocean_sfc%frazil)
+    !call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential"   , "will provide", data=Ocean_sfc%frazil)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "accum_heat_frazil"   , "will provide", data=Ocean_sfc%frazil)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "accum_melt_potential"   , "will provide", data=Ocean_sfc%melt_potential)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=dataPtr_frzmlt)
 
   end subroutine MOM_FieldsSetup
 
@@ -2080,10 +2127,10 @@ module mom_cap_mod
     integer                  :: rc
 
 #ifdef MOM6_CAP
-    return
+    !return
 #endif
 
-    if(.not. write_diagnostics) return ! nop in production mode
+    !if(.not. write_diagnostics) return ! nop in production mode
     if(ocean_solo) return ! do not dump internal fields in ocean solo mode
 
     field = ESMF_FieldCreate(grid, ESMF_TYPEKIND_R8, &
