@@ -72,7 +72,7 @@ use MOM_dynamics_unsplit_RK2,  only : initialize_dyn_unsplit_RK2, end_dyn_unspli
 use MOM_dynamics_unsplit_RK2,  only : MOM_dyn_unsplit_RK2_CS
 use MOM_dyn_horgrid,           only : dyn_horgrid_type, create_dyn_horgrid, destroy_dyn_horgrid
 use MOM_debugging,             only : check_redundant
-use MOM_EOS,                   only : EOS_init, calculate_density
+use MOM_EOS,                   only : EOS_init, calculate_density, calculate_TFreeze
 use MOM_fixed_initialization,  only : MOM_initialize_fixed
 use MOM_grid,                  only : ocean_grid_type, set_first_direction
 use MOM_grid,                  only : MOM_grid_init, MOM_grid_end
@@ -2673,6 +2673,7 @@ subroutine extract_surface_state(CS, sfc_state)
                                       ! determine mixed layer properties (meter)
   real :: dh                          ! thickness of a layer within mixed layer (meter)
   real :: mass                        ! mass per unit area of a layer (kg/m2)
+  real :: T_freeze
 
   logical :: use_temperature   ! If true, temp and saln used as state variables.
   integer :: i, j, k, is, ie, js, je, nz, numberOfErrors

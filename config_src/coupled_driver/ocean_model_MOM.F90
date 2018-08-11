@@ -875,7 +875,7 @@ subroutine convert_state_to_ocean_type(sfc_state, Ocean_sfc, G, patm, press_to_z
     enddo ; enddo
   endif
 
-  if (associated(sfc_state%melt_potential)) then
+  if (allocated(sfc_state%melt_potential)) then
     do j=jsc_bnd,jec_bnd ; do i=isc_bnd,iec_bnd
       Ocean_sfc%melt_potential(i,j) = sfc_state%melt_potential(i+i0,j+j0)
     enddo ; enddo

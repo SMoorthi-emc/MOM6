@@ -640,6 +640,7 @@ module mom_cap_mod
 
     integer                                :: npet, npet_x, npet_y
     character(len=*),parameter  :: subname='(mom_cap:InitializeAdvertise)'
+    character(240)              :: msgString
 
     rc = ESMF_SUCCESS
 
@@ -1376,6 +1377,8 @@ module mom_cap_mod
     character(240)              :: msgString
     character(len=*),parameter  :: subname='(mom_cap:ModelAdvance)'
 
+    integer :: ijloc(2), iloc,jloc
+
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
     
@@ -1597,10 +1600,23 @@ module mom_cap_mod
 
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
     dataPtr_melt_potential = -dataPtr_melt_potential/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
-                                                             ! melt_potential, defined positive for T>Tfreeze
-                                                             ! so change sign 
+                                                             !melt_potential, defined positive for T>Tfreeze
+                                                             !so change sign 
     dataPtr_frzmlt = dataPtr_frazil + dataPtr_melt_potential
     ! fixfrzmlt
+
+    ijloc = maxloc(dataPtr_frazil)
+    write (msgString,*)' MOM6 dataPtr_frazil at maxloc ',ijloc,&
+                        real(dataPtr_frazil(ijloc(1),ijloc(2)),4)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' MOM6 dataPtr_melt_potential at maxloc ',ijloc,&
+                        real(dataPtr_melt_potential(ijloc(1),ijloc(2)),4)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' MOM6 dataPtr_frzmlt at maxloc ',ijloc,&
+                        real(dataPtr_frzmlt(ijloc(1),ijloc(2)),4)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     ocz = dataPtr_ocz
     ocm = dataPtr_ocm
@@ -1631,7 +1647,7 @@ module mom_cap_mod
     call ESMF_LogWrite("Before calling sbc forcing", ESMF_LOGMSG_INFO, rc=rc)
     call external_coupler_sbc_after(Ice_ocean_boundary, Ocean_sfc, nc, dt_cpld )
 !override for testing
-!#ifdef test
+#ifdef test
     call ESMF_LogWrite("Before dumpMomInternal", ESMF_LOGMSG_INFO, rc=rc)
     !write(*,*) 'MOM: --- run phase called ---'
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
@@ -1661,11 +1677,11 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
-!#endif
+#endif
     call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
     call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
     call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
-    export_slice = export_slice + 1
+    !export_slice = export_slice + 1
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
@@ -1718,8 +1734,6 @@ module mom_cap_mod
     call ocean_model_end (Ocean_sfc, Ocean_State, Time)
     call diag_manager_end(Time )
     call field_manager_end
-
-    deallocate(dataPtr_frzmlt)
 
     call fms_io_exit
     call fms_end
@@ -1993,7 +2007,7 @@ module mom_cap_mod
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-        call ESMF_LogWrite(subname // tag // " Field "// field_defs(i)%stdname // " is connected.", &
+        call ESMF_LogWrite(subname // tag // " Field "// trim(field_defs(i)%stdname) // " is connected.", &
           ESMF_LOGMSG_INFO, &
           line=__LINE__, &
           file=__FILE__, &
@@ -2004,7 +2018,7 @@ module mom_cap_mod
 !          file=__FILE__)) &
 !          return  ! bail out
       else
-        call ESMF_LogWrite(subname // tag // " Field "// field_defs(i)%stdname // " is not connected.", &
+        call ESMF_LogWrite(subname // tag // " Field "// trim(field_defs(i)%stdname) // " is not connected.", &
           ESMF_LOGMSG_INFO, &
           line=__LINE__, &
           file=__FILE__, &
