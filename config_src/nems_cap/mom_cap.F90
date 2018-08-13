@@ -747,21 +747,6 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
-    ! fixfrzmlt
-    ! no internal state variable to point to
-    ! export variables defined DELOCAL indexing
-    ! Ocean_sfc%frazil fields at this point are on global bounds???
-    allocate(dataPtr_frzmlt(1:(iec-isc+1),1:(jec-jsc+1)))
-    dataPtr_frzmlt = 0.0
-
-    write (msgString,*)' Advertise dataPtr_frzmlt bounds',&
-                       lbound(dataPtr_frzmlt,1),&
-                       ubound(dataPtr_frzmlt,1),&
-                       lbound(dataPtr_frzmlt,2),&
-                       ubound(dataPtr_frzmlt,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-    ! fixfrzmlt
-
     call MOM_FieldsSetup(ice_ocean_boundary, ocean_sfc)
 
     call MOM_AdvertiseFields(importState, fldsToOcn_num, fldsToOcn, rc)
@@ -842,6 +827,7 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer            :: dataPtr_ycor(:,:)
     type(ESMF_Field)                       :: field_t_surf
     character(len=*),parameter  :: subname='(mom_cap:InitializeRealize)'
+    character(240)              :: msgString
     
     rc = ESMF_SUCCESS
 
@@ -1282,6 +1268,13 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
+    write (msgString,*)' Realize dataPtr_frzmlt bounds',&
+                       lbound(dataPtr_frzmlt,1),&
+                       ubound(dataPtr_frzmlt,1),&
+                       lbound(dataPtr_frzmlt,2),&
+                       ubound(dataPtr_frzmlt,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
     call ESMF_StateGet(exportState, itemSearch="sea_surface_temperature", itemCount=icount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1597,6 +1590,12 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    !write (msgString,*)' Advance dataPtr_frzmlt bounds',&
+    !                   lbound(dataPtr_frzmlt,1),&
+    !                   ubound(dataPtr_frzmlt,1),&
+    !                   lbound(dataPtr_frzmlt,2),&
+    !                   ubound(dataPtr_frzmlt,2)
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
     dataPtr_melt_potential = -dataPtr_melt_potential/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling

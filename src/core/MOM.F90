@@ -2834,7 +2834,7 @@ subroutine extract_surface_state(CS, sfc_state)
       enddo ; enddo
     endif
   endif  ! (CS%Hmix >= 0.0)
-#ifdef test
+!#ifdef test
   if (allocated(sfc_state%melt_potential)) then
     do j=js,je
       do i=is,ie
