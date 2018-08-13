@@ -1377,7 +1377,7 @@ module mom_cap_mod
     character(240)              :: msgString
     character(len=*),parameter  :: subname='(mom_cap:ModelAdvance)'
 
-    integer :: ijloc(2), iloc,jloc
+    integer :: ijloc(2)
 
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
@@ -1601,22 +1601,35 @@ module mom_cap_mod
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
     dataPtr_melt_potential = -dataPtr_melt_potential/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
                                                              !melt_potential, defined positive for T>Tfreeze
-                                                             !so change sign 
-    dataPtr_frzmlt = dataPtr_frazil + dataPtr_melt_potential
-    ! fixfrzmlt
-
+                                                             !so change sign
+    !testing
     ijloc = maxloc(dataPtr_frazil)
-    write (msgString,*)' MOM6 dataPtr_frazil at maxloc ',ijloc,&
-                        real(dataPtr_frazil(ijloc(1),ijloc(2)),4)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    if((sum(ijloc) .gt. 2) .and. &
+        (dataPtr_frazil(ijloc(1),ijloc(2)) .gt. 0.0))then
+        i1 = ijloc(1) - lbnd1 + isc
+        j1 = ijloc(2) - lbnd2 + jsc  ! work around local vs global indexing
+     write (msgString,*)' MOM6 dataPtr_frazil at maxloc ',i1,j1,&
+                         real(dataPtr_frazil(ijloc(1),ijloc(2)),4)
+     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
-    write (msgString,*)' MOM6 dataPtr_melt_potential at maxloc ',ijloc,&
-                        real(dataPtr_melt_potential(ijloc(1),ijloc(2)),4)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+     write (msgString,*)' MOM6 dataPtr_melt_potential at maxloc ',i1,j1,&
+                         real(dataPtr_melt_potential(ijloc(1),ijloc(2)),4)
+     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    endif
+    !testing
 
-    write (msgString,*)' MOM6 dataPtr_frzmlt at maxloc ',ijloc,&
-                        real(dataPtr_frzmlt(ijloc(1),ijloc(2)),4)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    dataPtr_melt_potential = min(dataPtr_melt_potential,0.0)
+
+    do j  = lbnd2, ubnd2
+      do i = lbnd1, ubnd1
+       if(dataPtr_frazil(i,j) .eq. 0.0)then
+        dataPtr_frzmlt(i,j) = dataPtr_melt_potential(i,j)
+       else
+        dataPtr_frzmlt(i,j) = dataPtr_frazil(i,j)
+       endif
+      enddo
+    enddo
+    dataPtr_frzmlt = max(-1000.0,min(1000.0,dataPtr_frzmlt))
 
     ocz = dataPtr_ocz
     ocm = dataPtr_ocm
@@ -1678,9 +1691,9 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
 #endif
-    call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
-    call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
-    call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    !call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
+    !call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
+    !call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
     !export_slice = export_slice + 1
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
