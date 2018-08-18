@@ -2834,7 +2834,7 @@ subroutine extract_surface_state(CS, sfc_state)
       enddo ; enddo
     endif
   endif  ! (CS%Hmix >= 0.0)
-!#ifdef test
+
   if (allocated(sfc_state%melt_potential)) then
     do j=js,je
       do i=is,ie
@@ -2844,6 +2844,7 @@ subroutine extract_surface_state(CS, sfc_state)
 
       do k=1,nz ; do i=is,ie
         depth_ml = min(HFrz,CS%visc%MLD(i,j))
+        !depth_ml = CS%Hmix
         if (depth(i) + h(i,j,k)*GV%H_to_m < depth_ml) then
           dh = h(i,j,k)*GV%H_to_m
         elseif (depth(i) < depth_ml) then
@@ -2869,7 +2870,6 @@ subroutine extract_surface_state(CS, sfc_state)
       enddo 
     enddo ! end of j loop
   endif
-!#endif
 #ifdef test
         if (allocated(sfc_state%melt_potential)) then
 !$OMP parallel do default(shared)
@@ -2880,7 +2880,8 @@ subroutine extract_surface_state(CS, sfc_state)
         call calculate_TFreeze(sfc_state%SSS(i,j), 0.0, T_freeze, CS%tv%eqn_of_state)
         ! time accumulated melt_potential, in J/m^2
         sfc_state%melt_potential(i,j) = sfc_state%melt_potential(i,j) +  (CS%tv%C_p * CS%GV%Rho0 * &
-                                        (sfc_state%SST(i,j) - T_freeze) * CS%Hmix)
+                                        (sfc_state%SST(i,j) - T_freeze) * min(CS%Hmix,G%bathyT(i,j)))
+      !                                  (sfc_state%SST(i,j) - T_freeze) * CS%Hmix)
       !                                  (sfc_state%SST(i,j) - T_freeze) * min(20.0,CS%visc%MLD(i,j)))
       else
           sfc_state%melt_potential(i,j) = 0.0
