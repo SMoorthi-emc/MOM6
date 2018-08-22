@@ -768,8 +768,24 @@ module mom_cap_mod
     ! The rotation angles are retrieved during run time to rotate incoming
     ! and outgoing vectors
     !
+    write (msgString,*)'finding rotation angles for MOM6'
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
     call calculate_rot_angle(Ocean_state, ocean_sfc, &
       ocean_internalstate%ptr%ocean_grid_ptr)
+
+    write (msgString,*)'Sin_rot bounds',&
+                       lbound(ocean_internalstate%ptr%ocean_grid_ptr%sin_rot,1),&
+                       ubound(ocean_internalstate%ptr%ocean_grid_ptr%sin_rot,1),&
+                       lbound(ocean_internalstate%ptr%ocean_grid_ptr%sin_rot,2),&
+                       ubound(ocean_internalstate%ptr%ocean_grid_ptr%sin_rot,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)'Cos_rot bounds',&
+                       lbound(ocean_internalstate%ptr%ocean_grid_ptr%cos_rot,1),&
+                       ubound(ocean_internalstate%ptr%ocean_grid_ptr%cos_rot,1),&
+                       lbound(ocean_internalstate%ptr%ocean_grid_ptr%cos_rot,2),&
+                       ubound(ocean_internalstate%ptr%ocean_grid_ptr%cos_rot,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 #endif
     write (msgString,*)'dt_cpld = ',dt_cpld
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
@@ -1508,10 +1524,15 @@ module mom_cap_mod
       do i = lbnd1, ubnd1
         j1 = j - lbnd2 + jsc  ! work around local vs global indexing
         i1 = i - lbnd1 + isc
+        !mzmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mzmf(i,j) &
+        !          + Ocean_grid%sin_rot(i1,j1)*dataPtr_mmmf(i,j)
+        !mmmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mmmf(i,j) &
+        !          - Ocean_grid%sin_rot(i1,j1)*dataPtr_mzmf(i,j)
+        !SIS2 fast thermo
         mzmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mzmf(i,j) &
-                  + Ocean_grid%sin_rot(i1,j1)*dataPtr_mmmf(i,j)
+                  - Ocean_grid%sin_rot(i1,j1)*dataPtr_mmmf(i,j)
         mmmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mmmf(i,j) &
-                  - Ocean_grid%sin_rot(i1,j1)*dataPtr_mzmf(i,j)
+                  + Ocean_grid%sin_rot(i1,j1)*dataPtr_mzmf(i,j)
       enddo
     enddo
     dataPtr_mzmf = mzmf
@@ -1634,16 +1655,37 @@ module mom_cap_mod
     enddo
     dataPtr_frzmlt = max(-1000.0,min(1000.0,dataPtr_frzmlt))
 
+    write (msgString,*)'Advance Sin_rot bounds',&
+                       lbound(Ocean_grid%sin_rot,1),&
+                       ubound(Ocean_grid%sin_rot,1),&
+                       lbound(Ocean_grid%sin_rot,2),&
+                       ubound(Ocean_grid%sin_rot,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)'Advance Sin_rot bounds',&
+                       lbound(Ocean_grid%cos_rot,1),&
+                       ubound(Ocean_grid%cos_rot,1),&
+                       lbound(Ocean_grid%cos_rot,2),&
+                       ubound(Ocean_grid%cos_rot,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+
+
     ocz = dataPtr_ocz
     ocm = dataPtr_ocm
     do j  = lbnd2, ubnd2
       do i = lbnd1, ubnd1
         j1 = j - lbnd2 + jsc  ! work around local vs global indexing
         i1 = i - lbnd1 + isc
+        !dataPtr_ocz(i,j) = Ocean_grid%cos_rot(i1,j1)*ocz(i,j) &
+        !                 - Ocean_grid%sin_rot(i1,j1)*ocm(i,j)
+        !dataPtr_ocm(i,j) = Ocean_grid%cos_rot(i1,j1)*ocm(i,j) &
+        !                 + Ocean_grid%sin_rot(i1,j1)*ocz(i,j)
+        !SIS2
+        !Rotate the velocities from the ocean coordinates to lat/lon coordinates.
         dataPtr_ocz(i,j) = Ocean_grid%cos_rot(i1,j1)*ocz(i,j) &
-                         - Ocean_grid%sin_rot(i1,j1)*ocm(i,j)
+                         + Ocean_grid%sin_rot(i1,j1)*ocm(i,j)
         dataPtr_ocm(i,j) = Ocean_grid%cos_rot(i1,j1)*ocm(i,j) &
-                         + Ocean_grid%sin_rot(i1,j1)*ocz(i,j)
+                         - Ocean_grid%sin_rot(i1,j1)*ocz(i,j)
       enddo
     enddo
     deallocate(ocz, ocm)
@@ -1694,12 +1736,14 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
 #endif
-    call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
-    call dumpMomInternal(mom_grid_i, export_slice, "s_surf"    , "will provide", Ocean_sfc%s_surf )
-    call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
-    call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
-    call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
-    export_slice = export_slice + 1
+    !call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
+    !call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
+    !call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
+    !call dumpMomInternal(mom_grid_i, export_slice, "s_surf"    , "will provide", Ocean_sfc%s_surf )
+    !call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
+    !call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
+    !call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    !export_slice = export_slice + 1
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance

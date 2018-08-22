@@ -1920,6 +1920,14 @@ subroutine write_static_fields(G, GV, tv, diag)
         'Coriolis parameter at corner (Bu) points', 's-1', interp_method='none')
   if (id > 0) call post_data(id, G%CoriolisBu, diag, .true.)
 
+  id = register_static_field('ocean_model', 'sinrot', diag%axesT1, &
+        '-SINROT,COSROT points north at tracer points', 'none', interp_method='none')
+  if (id > 0) call post_data(id, G%sin_rot, diag, .true.)
+
+  id = register_static_field('ocean_model', 'cosrot', diag%axesT1, &
+        'COSROT,SINROT points east at tracer points', 'none', interp_method='none')
+  if (id > 0) call post_data(id, G%cos_rot, diag, .true.)
+
   id = register_static_field('ocean_model', 'dxt', diag%axesT1, &
         'Delta(x) at thickness/tracer points (meter)', 'm', interp_method='none')
   if (id > 0) call post_data(id, G%dxt, diag, .true.)
