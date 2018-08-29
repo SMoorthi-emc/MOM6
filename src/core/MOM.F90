@@ -2772,6 +2772,7 @@ subroutine extract_surface_state(CS, sfc_state)
     enddo ! end of j loop
 
 !   Determine the mean velocities in the uppermost depth_ml fluid.
+
     if (CS%Hmix_UV>0.) then
       depth_ml = CS%Hmix_UV
       !$OMP parallel do default(shared) private(depth,dh,hv)
@@ -2836,6 +2837,7 @@ subroutine extract_surface_state(CS, sfc_state)
   endif  ! (CS%Hmix >= 0.0)
 
   if (allocated(sfc_state%melt_potential)) then
+
     do j=js,je
       do i=is,ie
         depth(i) = 0.0
@@ -2853,7 +2855,7 @@ subroutine extract_surface_state(CS, sfc_state)
           dh = 0.0
         endif
 
-        ! p=0 OK, HFrz~20m
+        ! p=0 OK, HFrz~20m, delT in deg*m
         call calculate_TFreeze(CS%tv%S(i,j,k), 0.0, T_freeze, CS%tv%eqn_of_state)
         depth(i) = depth(i) + dh
          delT(i) =  delT(i) + dh * (CS%tv%T(i,j,k) - T_freeze)
@@ -2864,31 +2866,15 @@ subroutine extract_surface_state(CS, sfc_state)
        if (G%mask2dT(i,j)>0.) then
          ! time accumulated melt_potential, in J/m^2
          sfc_state%melt_potential(i,j) = sfc_state%melt_potential(i,j) +  (CS%tv%C_p * CS%GV%Rho0 * delT(i))
+         ! instantaneous melt_potential, in J/m^2
+         !sfc_state%melt_potential(i,j) =  CS%tv%C_p * CS%GV%Rho0 * delT(i)
        else
          sfc_state%melt_potential(i,j) = 0.0
        endif! G%mask2dT
       enddo 
     enddo ! end of j loop
   endif
-#ifdef test
-        if (allocated(sfc_state%melt_potential)) then
-!$OMP parallel do default(shared)
-    do j=js,je ; do i=is,ie
-      ! set melt_potential to zero to avoid passing values set previously
-      if (G%mask2dT(i,j)>0.) then
-        ! calculate freezing pot. temp. @ surface
-        call calculate_TFreeze(sfc_state%SSS(i,j), 0.0, T_freeze, CS%tv%eqn_of_state)
-        ! time accumulated melt_potential, in J/m^2
-        sfc_state%melt_potential(i,j) = sfc_state%melt_potential(i,j) +  (CS%tv%C_p * CS%GV%Rho0 * &
-                                        (sfc_state%SST(i,j) - T_freeze) * min(CS%Hmix,G%bathyT(i,j)))
-      !                                  (sfc_state%SST(i,j) - T_freeze) * CS%Hmix)
-      !                                  (sfc_state%SST(i,j) - T_freeze) * min(20.0,CS%visc%MLD(i,j)))
-      else
-          sfc_state%melt_potential(i,j) = 0.0
-      endif! G%mask2dT
-    enddo ; enddo
-  endif
-#endif
+
   if (allocated(sfc_state%salt_deficit) .and. associated(CS%tv%salt_deficit)) then
     !$OMP parallel do default(shared)
     do j=js,je ; do i=is,ie

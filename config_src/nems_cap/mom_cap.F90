@@ -773,19 +773,6 @@ module mom_cap_mod
 
     call calculate_rot_angle(Ocean_state, ocean_sfc, &
       ocean_internalstate%ptr%ocean_grid_ptr)
-
-    write (msgString,*)'Sin_rot bounds',&
-                       lbound(ocean_internalstate%ptr%ocean_grid_ptr%sin_rot,1),&
-                       ubound(ocean_internalstate%ptr%ocean_grid_ptr%sin_rot,1),&
-                       lbound(ocean_internalstate%ptr%ocean_grid_ptr%sin_rot,2),&
-                       ubound(ocean_internalstate%ptr%ocean_grid_ptr%sin_rot,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-    write (msgString,*)'Cos_rot bounds',&
-                       lbound(ocean_internalstate%ptr%ocean_grid_ptr%cos_rot,1),&
-                       ubound(ocean_internalstate%ptr%ocean_grid_ptr%cos_rot,1),&
-                       lbound(ocean_internalstate%ptr%ocean_grid_ptr%cos_rot,2),&
-                       ubound(ocean_internalstate%ptr%ocean_grid_ptr%cos_rot,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 #endif
     write (msgString,*)'dt_cpld = ',dt_cpld
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
@@ -1471,6 +1458,7 @@ module mom_cap_mod
       import_slice = import_slice + 1
     endif
 
+
     ! rotate the lat/lon wind vector (CW) onto local tripolar coordinate system
 
     call mpp_get_compute_domain(Ocean_sfc%domain, isc, iec, jsc, jec)
@@ -1517,6 +1505,19 @@ module mom_cap_mod
 
     dataPtr_evap = - dataPtr_evap
     dataPtr_sensi = - dataPtr_sensi
+
+    !write (msgString,*)' sin_rot bounds in Advance',&
+    !                   lbound(Ocean_grid%sin_rot,1),&
+    !                   ubound(Ocean_grid%sin_rot,1),&
+    !                   lbound(Ocean_grid%sin_rot,2),&
+    !                   ubound(Ocean_grid%sin_rot,2)
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    !write (msgString,*)' cos_rot bounds in Advance',&
+    !                   lbound(Ocean_grid%cos_rot,1),&
+    !                   ubound(Ocean_grid%cos_rot,1),&
+    !                   lbound(Ocean_grid%cos_rot,2),&
+    !                   ubound(Ocean_grid%cos_rot,2)
+    !call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     allocate(mzmf(lbnd1:ubnd1,lbnd2:ubnd2))
     allocate(mmmf(lbnd1:ubnd1,lbnd2:ubnd2))
@@ -1654,21 +1655,6 @@ module mom_cap_mod
       enddo
     enddo
     dataPtr_frzmlt = max(-1000.0,min(1000.0,dataPtr_frzmlt))
-
-    write (msgString,*)'Advance Sin_rot bounds',&
-                       lbound(Ocean_grid%sin_rot,1),&
-                       ubound(Ocean_grid%sin_rot,1),&
-                       lbound(Ocean_grid%sin_rot,2),&
-                       ubound(Ocean_grid%sin_rot,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-    write (msgString,*)'Advance Sin_rot bounds',&
-                       lbound(Ocean_grid%cos_rot,1),&
-                       ubound(Ocean_grid%cos_rot,1),&
-                       lbound(Ocean_grid%cos_rot,2),&
-                       ubound(Ocean_grid%cos_rot,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-
-
 
     ocz = dataPtr_ocz
     ocm = dataPtr_ocm
@@ -2250,6 +2236,9 @@ module mom_cap_mod
     real                                  :: angle, lon_scale
     type(ocean_grid_type), pointer        :: G
 
+    integer :: rc
+    character(240)                        :: msgString
+
     call get_ocean_grid(OS, G)
 
     !print *, 'lbound: ', lbound(G%geoLatT), lbound(G%geoLonT), lbound(G%sin_rot)
@@ -2284,6 +2273,26 @@ module mom_cap_mod
     enddo ; enddo
     !print *, minval(OG%sin_rot), maxval(OG%sin_rot)
     !print *, minval(OG%cos_rot), maxval(OG%cos_rot)
+
+    write (msgString,*)' sin_rot bounds in calc_rot',&
+                       lbound(OG%sin_rot,1),&
+                       ubound(OG%sin_rot,1),&
+                       lbound(OG%sin_rot,2),&
+                       ubound(OG%sin_rot,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)' cos_rot bounds in calc_rot',&
+                       lbound(OG%cos_rot,1),&
+                       ubound(OG%cos_rot,1),&
+                       lbound(OG%cos_rot,2),&
+                       ubound(OG%cos_rot,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' Min,Max sin_rot ',&
+                        real(minval(OG%sin_rot),4), real(maxval(OG%sin_rot),4)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)' Min,Max cos_rot ',&
+                        real(minval(OG%cos_rot),4), real(maxval(OG%cos_rot),4)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
   end subroutine
 #endif
