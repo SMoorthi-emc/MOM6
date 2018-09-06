@@ -1702,16 +1702,16 @@ module mom_cap_mod
     ! Clobber the fields to look at sin_rot,cos_rot
     !!!!!!!
 
-    do j  = lbnd2, ubnd2
-      do i = lbnd1, ubnd1
-        j1 = j + ocean_grid%jsc - lbnd2
-        i1 = i + ocean_grid%isc - lbnd1
-        dataPtr_frazil(i,j) = Ocean_grid%sin_rot(i1,j1)
-        dataPtr_melt_potential(i,j) = Ocean_grid%cos_rot(i1,j1)
+    !do j  = lbnd2, ubnd2
+    !  do i = lbnd1, ubnd1
+    !    j1 = j + ocean_grid%jsc - lbnd2
+    !    i1 = i + ocean_grid%isc - lbnd1
+    !    dataPtr_frazil(i,j) = Ocean_grid%sin_rot(i1,j1)
+    !    dataPtr_melt_potential(i,j) = Ocean_grid%cos_rot(i1,j1)
        ! dataPtr_frazil(i,j) = Ocean_grid%sin_rot(i,j)
        ! dataPtr_melt_potential(i,j) = Ocean_grid%cos_rot(i,j)
-      enddo
-    enddo
+    !  enddo
+    !enddo
 
     ! "grid" uses the usual MOM domain that has halos
     ! and does not use global indexing.
