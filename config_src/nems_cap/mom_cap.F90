@@ -439,9 +439,6 @@ module mom_cap_mod
   logical                 :: grid_attach_area = .false.
   integer(ESMF_KIND_I8)   :: restart_interval
 
-  !frzmlt
-  real(ESMF_KIND_R8), dimension(:,:), pointer :: dataPtr_frzmlt
-
   contains
   !-----------------------------------------------------------------------
   !------------------- Solo Ocean code starts here -----------------------
@@ -1185,6 +1182,13 @@ module mom_cap_mod
                        lbound(dataPtr_ycen,2),&
                        ubound(dataPtr_ycen,2)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)' dataPtr_xcen bounds ',&
+                       lbound(dataPtr_xcen,1),&
+                       ubound(dataPtr_xcen,1),&
+                       lbound(dataPtr_xcen,2),&
+                       ubound(dataPtr_xcen,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
 #ifdef MOM5_CAP
     call ocean_model_data_get(Ocean_state, Ocean_sfc, 'ulon', ofld, isc, jsc)
 #endif
@@ -1253,6 +1257,19 @@ module mom_cap_mod
        ! call ESMF_LogWrite(trim(tmpstr), ESMF_LOGMSG_INFO, rc=dbrc)
     enddo
     enddo
+
+    write (msgString,*)' dataPtr_ycor bounds ',&
+                       lbound(dataPtr_ycor,1),&
+                       ubound(dataPtr_ycor,1),&
+                       lbound(dataPtr_ycor,2),&
+                       ubound(dataPtr_ycor,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)' dataPtr_xcor bounds ',&
+                       lbound(dataPtr_xcor,1),&
+                       ubound(dataPtr_xcor,1),&
+                       lbound(dataPtr_xcor,2),&
+                       ubound(dataPtr_xcor,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     write(tmpstr,*) subname//' mask = ',minval(dataPtr_mask),maxval(dataPtr_mask)
     call ESMF_LogWrite(trim(tmpstr), ESMF_LOGMSG_INFO, rc=dbrc)
@@ -1382,6 +1399,7 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer :: dataPtr_ocm(:,:) 
     real(ESMF_KIND_R8), pointer :: dataPtr_frazil(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_melt_potential(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr_frzmlt(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_evap(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_sensi(:,:)
     type(ocean_grid_type), pointer :: Ocean_grid
@@ -1665,6 +1683,14 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
+    write (msgString,*)' MOM6 dataPtr_frzmlt bounds Advance',&
+                       lbound(dataPtr_frzmlt,1),&
+                       ubound(dataPtr_frzmlt,1),&
+                       lbound(dataPtr_frzmlt,2),&
+                       ubound(dataPtr_frzmlt,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
     dataPtr_melt_potential = -dataPtr_melt_potential/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
                                                              !melt_potential, defined positive for T>Tfreeze
@@ -1701,15 +1727,12 @@ module mom_cap_mod
     !!!!!!!
     ! Clobber the fields to look at sin_rot,cos_rot
     !!!!!!!
-
     !do j  = lbnd2, ubnd2
     !  do i = lbnd1, ubnd1
     !    j1 = j + ocean_grid%jsc - lbnd2
     !    i1 = i + ocean_grid%isc - lbnd1
-    !    dataPtr_frazil(i,j) = Ocean_grid%sin_rot(i1,j1)
+    !            dataPtr_frazil(i,j) = Ocean_grid%sin_rot(i1,j1)
     !    dataPtr_melt_potential(i,j) = Ocean_grid%cos_rot(i1,j1)
-       ! dataPtr_frazil(i,j) = Ocean_grid%sin_rot(i,j)
-       ! dataPtr_melt_potential(i,j) = Ocean_grid%cos_rot(i,j)
     !  enddo
     !enddo
 
@@ -1788,14 +1811,14 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
 #endif
-    call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
-    call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
+    !call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
+    !call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     !call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
     !call dumpMomInternal(mom_grid_i, export_slice, "s_surf"    , "will provide", Ocean_sfc%s_surf )
     !call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
     !call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
     !call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
-    export_slice = export_slice + 1
+    !export_slice = export_slice + 1
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
@@ -2157,6 +2180,8 @@ module mom_cap_mod
     type(ice_ocean_boundary_type), intent(in)   :: Ice_ocean_boundary
     type(ocean_public_type), intent(in)         :: Ocean_sfc
     character(len=*),parameter  :: subname='(mom_cap:MOM_FieldsSetup)'
+
+  real(ESMF_KIND_R8), dimension(:,:), pointer :: dataPtr_frzmlt
 
   !!! fld_list_add(num, fldlist, stdname, transferOffer, data(optional), shortname(optional))
 
