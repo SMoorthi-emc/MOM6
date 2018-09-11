@@ -1490,9 +1490,9 @@ module mom_cap_mod
         j1 = j - lbnd2 + jsc  ! work around local vs global indexing
         i1 = i - lbnd1 + isc
         mzmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mzmf(i,j) &
-                  + Ocean_grid%sin_rot(i1,j1)*dataPtr_mmmf(i,j)
+                  - Ocean_grid%sin_rot(i1,j1)*dataPtr_mmmf(i,j)
         mmmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mmmf(i,j) &
-                  - Ocean_grid%sin_rot(i1,j1)*dataPtr_mzmf(i,j)
+                  + Ocean_grid%sin_rot(i1,j1)*dataPtr_mzmf(i,j)
       enddo
     enddo
     dataPtr_mzmf = mzmf
@@ -1573,9 +1573,9 @@ module mom_cap_mod
         j1 = j - lbnd2 + jsc  ! work around local vs global indexing
         i1 = i - lbnd1 + isc
         dataPtr_ocz(i,j) = Ocean_grid%cos_rot(i1,j1)*ocz(i,j) &
-                         - Ocean_grid%sin_rot(i1,j1)*ocm(i,j)
+                         + Ocean_grid%sin_rot(i1,j1)*ocm(i,j)
         dataPtr_ocm(i,j) = Ocean_grid%cos_rot(i1,j1)*ocm(i,j) &
-                         + Ocean_grid%sin_rot(i1,j1)*ocz(i,j)
+                         - Ocean_grid%sin_rot(i1,j1)*ocz(i,j)
       enddo
     enddo
     deallocate(ocz, ocm)
