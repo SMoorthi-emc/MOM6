@@ -525,24 +525,70 @@ subroutine initialize_grid_rotation_angle(G, PF)
                                                !! to parse for model parameter values.
 
   real    :: angle, lon_scale
-  integer :: i, j
+  real    :: len_lon    ! The periodic range of longitudes, usually 360 degrees.
+  real    :: pi_720deg  ! One quarter the conversion factor from degrees to radians.
+  real    :: lonB(2,2)  ! The longitude of a point, shifted to have about the same value.
+  character(len=40)  :: mdl = "initialize_grid_rotation_angle" ! This subroutine's name.
+  logical :: use_bugs
+  integer :: i, j, m, n
 
-  do j=G%jsc,G%jec ; do i=G%isc,G%iec
-    lon_scale    = cos((G%geoLatBu(I-1,J-1) + G%geoLatBu(I,J-1  ) + &
-                        G%geoLatBu(I-1,J) + G%geoLatBu(I,J)) * atan(1.0)/180)
-    angle        = atan2((G%geoLonBu(I-1,J) + G%geoLonBu(I,J) - &
-                          G%geoLonBu(I-1,J-1) - G%geoLonBu(I,J-1))*lon_scale, &
-                          G%geoLatBu(I-1,J) + G%geoLatBu(I,J) - &
-                          G%geoLatBu(I-1,J-1) - G%geoLatBu(I,J-1) )
-    G%sin_rot(i,j) = sin(angle) ! angle is the clockwise angle from lat/lon to ocean
-    G%cos_rot(i,j) = cos(angle) ! grid (e.g. angle of ocean "north" from true north)
-  enddo ; enddo
+  call get_param(PF, mdl, "GRID_ROTATION_ANGLE_BUGS", use_bugs, &
+                 "If true, use an older algorithm to calculate the sine and \n"//&
+                 "cosines needed rotate between grid-oriented directions and \n"//&
+                 "true north and east.  Differences arise at the tripolar fold.", &
+                 default=.True.)
 
-  ! ### THIS DOESN'T SEEM RIGHT AT A CUBED-SPHERE FOLD -RWH
-  call pass_var(G%cos_rot, G%Domain)
-  call pass_var(G%sin_rot, G%Domain)
+  if (use_bugs) then
+    do j=G%jsc,G%jec ; do i=G%isc,G%iec
+      lon_scale    = cos((G%geoLatBu(I-1,J-1) + G%geoLatBu(I,J-1  ) + &
+                          G%geoLatBu(I-1,J) + G%geoLatBu(I,J)) * atan(1.0)/180)
+      angle        = atan2((G%geoLonBu(I-1,J) + G%geoLonBu(I,J) - &
+                            G%geoLonBu(I-1,J-1) - G%geoLonBu(I,J-1))*lon_scale, &
+                            G%geoLatBu(I-1,J) + G%geoLatBu(I,J) - &
+                            G%geoLatBu(I-1,J-1) - G%geoLatBu(I,J-1) )
+      G%sin_rot(i,j) = sin(angle) ! angle is the clockwise angle from lat/lon to ocean
+      G%cos_rot(i,j) = cos(angle) ! grid (e.g. angle of ocean "north" from true north)
+    enddo ; enddo
+
+    ! This is not right at a tripolar or cubed-sphere fold.
+    call pass_var(G%cos_rot, G%Domain)
+    call pass_var(G%sin_rot, G%Domain)
+  else
+    pi_720deg = atan(1.0) / 180.0
+    len_lon = 360.0 ; if (G%len_lon > 0.0) len_lon = G%len_lon
+    do j=G%jsc,G%jec ; do i=G%isc,G%iec
+      do n=1,2 ; do m=1,2
+        lonB(m,n) = modulo_around_point(G%geoLonBu(I+m-2,J+n-2), G%geoLonT(i,j), len_lon)
+      enddo ; enddo
+      lon_scale = cos(pi_720deg*((G%geoLatBu(I-1,J-1) + G%geoLatBu(I,J)) + &
+                                 (G%geoLatBu(I,J-1) + G%geoLatBu(I-1,J)) ) )
+      angle = atan2(lon_scale*((lonB(1,2) - lonB(2,1)) + (lonB(2,2) - lonB(1,1))), &
+                    (G%geoLatBu(I-1,J) - G%geoLatBu(I,J-1)) + &
+                    (G%geoLatBu(I,J) - G%geoLatBu(I-1,J-1)) )
+      G%sin_rot(i,j) = sin(angle) ! angle is the clockwise angle from lat/lon to ocean
+      G%cos_rot(i,j) = cos(angle) ! grid (e.g. angle of ocean "north" from true north)
+    enddo ; enddo
+
+    call pass_vector(G%cos_rot, G%sin_rot, G%Domain, stagger=AGRID)
+  endif
 
 end subroutine initialize_grid_rotation_angle
+
+! -----------------------------------------------------------------------------
+!> Return the modulo value of x in an interval [xc-(Lx/2) xc+(Lx/2)]
+!! If Lx<=0, then it returns x without applying modulo arithmetic.
+function modulo_around_point(x, xc, Lx) result(x_mod)
+  real, intent(in) :: x  !< Value to which to apply modulo arithmetic
+  real, intent(in) :: xc !< Center of modulo range
+  real, intent(in) :: Lx !< Modulo range width
+  real :: x_mod          !< x shifted by an integer multiple of Lx to be close to xc.
+
+  if (Lx > 0.0) then
+    x_mod = modulo(x - (xc - 0.5*Lx), Lx) + (xc - 0.5*Lx)
+  else
+    x_mod = x
+  endif
+end function modulo_around_point
 
 ! -----------------------------------------------------------------------------
 !>   This subroutine sets the open face lengths at selected points to restrict
@@ -762,6 +808,8 @@ subroutine reset_face_lengths_list(G, param_file)
   real, pointer, dimension(:) :: &
     u_width => NULL(), v_width => NULL()
   real    :: lat, lon     ! The latitude and longitude of a point.
+  real    :: len_lon      ! The periodic range of longitudes, usually 360 degrees.
+  real    :: len_lat      ! The range of latitudes, usually 180 degrees.
   real    :: lon_p, lon_m ! The longitude of a point shifted by 360 degrees.
   logical :: check_360    ! If true, check for longitudes that are shifted by
                           ! +/- 360 degrees from the specified range of values.
@@ -808,6 +856,8 @@ subroutine reset_face_lengths_list(G, param_file)
     call read_face_length_list(iounit, filename, num_lines, lines)
   endif
 
+  len_lon = 360.0 ; if (G%len_lon > 0.0) len_lon = G%len_lon
+  len_lat = 180.0 ; if (G%len_lat > 0.0) len_lat = G%len_lat
   ! Broadcast the number of lines and allocate the required space.
   call broadcast(num_lines, root_PE())
   u_pt = 0 ; v_pt = 0
@@ -849,11 +899,11 @@ subroutine reset_face_lengths_list(G, param_file)
         read(line(isu+8:),*) u_lon(1:2,u_pt), u_lat(1:2,u_pt), u_width(u_pt)
         if (is_root_PE()) then
           if (check_360) then
-            if ((abs(u_lon(1,u_pt)) > 360.0) .or. (abs(u_lon(2,u_pt)) > 360.0)) &
+            if ((abs(u_lon(1,u_pt)) > len_lon) .or. (abs(u_lon(2,u_pt)) > len_lon)) &
               call MOM_error(WARNING, "reset_face_lengths_list : Out-of-bounds "//&
                  "u-longitude found when reading line "//trim(line)//" from file "//&
                  trim(filename))
-            if ((abs(u_lat(1,u_pt)) > 180.0) .or. (abs(u_lat(2,u_pt)) > 180.0)) &
+            if ((abs(u_lat(1,u_pt)) > len_lat) .or. (abs(u_lat(2,u_pt)) > len_lat)) &
               call MOM_error(WARNING, "reset_face_lengths_list : Out-of-bounds "//&
                  "u-latitude found when reading line "//trim(line)//" from file "//&
                  trim(filename))
@@ -876,11 +926,11 @@ subroutine reset_face_lengths_list(G, param_file)
         read(line(isv+8:),*) v_lon(1:2,v_pt), v_lat(1:2,v_pt), v_width(v_pt)
         if (is_root_PE()) then
           if (check_360) then
-            if ((abs(v_lon(1,v_pt)) > 360.0) .or. (abs(v_lon(2,v_pt)) > 360.0)) &
+            if ((abs(v_lon(1,v_pt)) > len_lon) .or. (abs(v_lon(2,v_pt)) > len_lon)) &
               call MOM_error(WARNING, "reset_face_lengths_list : Out-of-bounds "//&
                  "v-longitude found when reading line "//trim(line)//" from file "//&
                  trim(filename))
-            if ((abs(v_lat(1,v_pt)) > 180.0) .or. (abs(v_lat(2,v_pt)) > 180.0)) &
+            if ((abs(v_lat(1,v_pt)) > len_lat) .or. (abs(v_lat(2,v_pt)) > len_lat)) &
               call MOM_error(WARNING, "reset_face_lengths_list : Out-of-bounds "//&
                  "v-latitude found when reading line "//trim(line)//" from file "//&
                  trim(filename))
@@ -906,7 +956,7 @@ subroutine reset_face_lengths_list(G, param_file)
 
   do j=jsd,jed ; do I=IsdB,IedB
     lat = G%geoLatCu(I,j) ; lon = G%geoLonCu(I,j)
-    if (check_360) then ; lon_p = lon+360.0 ; lon_m = lon-360.0
+    if (check_360) then ; lon_p = lon+len_lon ; lon_m = lon-len_lon
     else ; lon_p = lon ; lon_m = lon ; endif
 
     do npt=1,u_pt
@@ -936,7 +986,7 @@ subroutine reset_face_lengths_list(G, param_file)
 
   do J=JsdB,JedB ; do i=isd,ied
     lat = G%geoLatCv(i,J) ; lon = G%geoLonCv(i,J)
-    if (check_360) then ; lon_p = lon+360.0 ; lon_m = lon-360.0
+    if (check_360) then ; lon_p = lon+len_lon ; lon_m = lon-len_lon
     else ; lon_p = lon ; lon_m = lon ; endif
 
     do npt=1,v_pt
@@ -1107,8 +1157,7 @@ subroutine write_ocean_geometry_file(G, param_file, directory, geom_file)
 !  (in)      directory - The directory into which to place the file.
   character(len=240) :: filepath
   character(len=40)  :: mdl = "write_ocean_geometry_file"
-  !integer, parameter :: nFlds=23
-  integer, parameter :: nFlds=25
+  integer, parameter :: nFlds=23
   type(vardesc) :: vars(nFlds)
   type(fieldtype) :: fields(nFlds)
   integer :: unit
@@ -1159,20 +1208,13 @@ subroutine write_ocean_geometry_file(G, param_file, directory, geom_file)
   vars(18)= var_desc("dyCuo","m","Open meridional grid spacing at u points",'u','1','1')
   vars(19)= var_desc("wet", "nondim", "land or ocean?", 'h','1','1')
 
-  vars(20)= var_desc("sinrot", "radians", "sin rot angle", 'h','1','1')
-  vars(21)= var_desc("cosrot", "radians", "cos rot angle", 'h','1','1')
+  vars(20) = var_desc("Dblock_u","m","Blocked depth at u points",'u','1','1')
+  vars(21) = var_desc("Dopen_u","m","Open depth at u points",'u','1','1')
+  vars(22) = var_desc("Dblock_v","m","Blocked depth at v points",'v','1','1')
+  vars(23) = var_desc("Dopen_v","m","Open depth at v points",'v','1','1')
 
-  !vars(20) = var_desc("Dblock_u","m","Blocked depth at u points",'u','1','1')
-  !vars(21) = var_desc("Dopen_u","m","Open depth at u points",'u','1','1')
-  !vars(22) = var_desc("Dblock_v","m","Blocked depth at v points",'v','1','1')
-  !vars(23) = var_desc("Dopen_v","m","Open depth at v points",'v','1','1')
-  vars(22) = var_desc("Dblock_u","m","Blocked depth at u points",'u','1','1')
-  vars(23) = var_desc("Dopen_u","m","Open depth at u points",'u','1','1')
-  vars(24) = var_desc("Dblock_v","m","Blocked depth at v points",'v','1','1')
-  vars(25) = var_desc("Dopen_v","m","Open depth at v points",'v','1','1')
 
-  !nFlds_used = 19 ; if (G%bathymetry_at_vel) nFlds_used = 23
-  nFlds_used = 21 ; if (G%bathymetry_at_vel) nFlds_used = 25
+  nFlds_used = 19 ; if (G%bathymetry_at_vel) nFlds_used = 23
 
   if (present(geom_file)) then
     filepath = trim(directory) // trim(geom_file)
@@ -1237,18 +1279,11 @@ subroutine write_ocean_geometry_file(G, param_file, directory, geom_file)
   call write_field(unit, fields(18), G%Domain%mpp_domain, G%dy_Cu)
   call write_field(unit, fields(19), G%Domain%mpp_domain, G%mask2dT)
 
-  call write_field(unit, fields(20), G%Domain%mpp_domain, G%sin_rot)
-  call write_field(unit, fields(21), G%Domain%mpp_domain, G%cos_rot)
-
   if (G%bathymetry_at_vel) then
-    !call write_field(unit, fields(20), G%Domain%mpp_domain, G%Dblock_u)
-    !call write_field(unit, fields(21), G%Domain%mpp_domain, G%Dopen_u)
-    !call write_field(unit, fields(22), G%Domain%mpp_domain, G%Dblock_v)
-    !call write_field(unit, fields(23), G%Domain%mpp_domain, G%Dopen_v)
-    call write_field(unit, fields(22), G%Domain%mpp_domain, G%Dblock_u)
-    call write_field(unit, fields(23), G%Domain%mpp_domain, G%Dopen_u)
-    call write_field(unit, fields(24), G%Domain%mpp_domain, G%Dblock_v)
-    call write_field(unit, fields(25), G%Domain%mpp_domain, G%Dopen_v)
+    call write_field(unit, fields(20), G%Domain%mpp_domain, G%Dblock_u)
+    call write_field(unit, fields(21), G%Domain%mpp_domain, G%Dopen_u)
+    call write_field(unit, fields(22), G%Domain%mpp_domain, G%Dblock_v)
+    call write_field(unit, fields(23), G%Domain%mpp_domain, G%Dopen_v)
   endif
 
   call close_file(unit)

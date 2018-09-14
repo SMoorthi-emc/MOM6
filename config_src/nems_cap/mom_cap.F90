@@ -830,6 +830,7 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer            :: dataPtr_xcor(:,:)
     real(ESMF_KIND_R8), pointer            :: dataPtr_ycor(:,:)
     type(ESMF_Field)                       :: field_t_surf
+    type(ocean_grid_type),         pointer :: Ocean_grid
     character(len=*),parameter  :: subname='(mom_cap:InitializeRealize)'
     character(240)              :: msgString
     
@@ -1066,6 +1067,14 @@ module mom_cap_mod
         return  ! bail out
     endif
 
+    call get_ocean_grid(ocean_state, ocean_grid)
+    write (msgString,*)' geolonT bounds in Initialize',&
+                       lbound(ocean_grid%geolonT,1),&
+                       ubound(ocean_grid%geolonT,1),&
+                       lbound(ocean_grid%geolonT,2),&
+                       ubound(ocean_grid%geolonT,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
     !---------------------------------
     ! load up area, mask, center and corner values
     ! area, mask, and centers should be same size in mom and esmf grid
@@ -1146,7 +1155,7 @@ module mom_cap_mod
        j1 = j - lbnd2 + jsc
        i1 = i - lbnd1 + isc
        dataPtr_xcen(i,j) = ofld(i1,j1)
-       dataPtr_xcen(i,j) = mod(dataPtr_xcen(i,j)+720.0_ESMF_KIND_R8,360.0_ESMF_KIND_R8)
+       !dataPtr_xcen(i,j) = mod(dataPtr_xcen(i,j)+720.0_ESMF_KIND_R8,360.0_ESMF_KIND_R8)
     enddo
     enddo
 
@@ -1217,7 +1226,7 @@ module mom_cap_mod
             line=__LINE__, file=__FILE__, rcToReturn=rc)
           return  ! bail out
        endif
-       dataPtr_xcor(i,j) = mod(dataPtr_xcor(i,j)+720.0_ESMF_KIND_R8,360.0_ESMF_KIND_R8)
+       !dataPtr_xcor(i,j) = mod(dataPtr_xcor(i,j)+720.0_ESMF_KIND_R8,360.0_ESMF_KIND_R8)
        ! write(tmpstr,*) subname//' ijfld xu = ',i,i1,j,j1,dataPtr_xcor(i,j)
        ! call ESMF_LogWrite(trim(tmpstr), ESMF_LOGMSG_INFO, rc=dbrc)
     enddo
@@ -1729,8 +1738,10 @@ module mom_cap_mod
     !!!!!!!
     !do j  = lbnd2, ubnd2
     !  do i = lbnd1, ubnd1
-    !    j1 = j + ocean_grid%jsc - lbnd2
-    !    i1 = i + ocean_grid%isc - lbnd1
+    !    j1 = j - lbnd2 + jsc  ! work around local vs global indexing
+    !    i1 = i - lbnd1 + isc
+        !j1 = j + ocean_grid%jsc - lbnd2
+        !i1 = i + ocean_grid%isc - lbnd1
     !            dataPtr_frazil(i,j) = Ocean_grid%sin_rot(i1,j1)
     !    dataPtr_melt_potential(i,j) = Ocean_grid%cos_rot(i1,j1)
     !  enddo
@@ -1811,14 +1822,14 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
 #endif
-    !call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
-    !call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
-    !call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
+    call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
+    call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
+    call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
     !call dumpMomInternal(mom_grid_i, export_slice, "s_surf"    , "will provide", Ocean_sfc%s_surf )
     !call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
     !call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
     !call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
-    !export_slice = export_slice + 1
+    export_slice = export_slice + 1
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
