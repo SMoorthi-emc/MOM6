@@ -276,6 +276,10 @@ type, public :: MOM_control_struct ; private
                                 !! average surface tracer properties (in meter) when
                                 !! bulk mixed layer is not used, or a negative value
                                 !! if a bulk mixed layer is being used.
+  real :: HFrz                  !< If HFrz > 0, melt potential will be computed.
+                                !! The actual depth over which melt potential is computed will
+                                !! min(HFrz, OBLD), where OBLD is the boundary layer depth.
+                                !! If HFrz <= 0 (default), melt potential will not be computed.
   real :: Hmix_UV               !< Depth scale over which to average surface flow to
                                 !! feedback to the coupler/driver (m) when
                                 !! bulk mixed layer is not used, or a negative value
@@ -1758,6 +1762,11 @@ subroutine initialize_MOM(Time, Time_init, param_file, dirs, CS, restart_CSp, &
                  "SSU, SSV. A non-positive value indicates no averaging.", &
                  units="m", default=0.)
   endif
+  call get_param(param_file, "MOM", "HFREEZE", CS%HFrz, &
+                 "If HFREEZE > 0, melt potential will be computed. The actual depth \n"//&
+                 "over which melt potential is computed will be min(HFREEZE, OBLD), \n"//&
+                 "where OBLD is the boundary layer depth. If HFREEZE <= 0 (default), \n"//&
+                 "melt potential will not be computed.", units="m", default=-1.0)
   call get_param(param_file, "MOM", "MIN_Z_DIAG_INTERVAL", Z_diag_int, &
                  "The minimum amount of time in seconds between \n"//&
                  "calculations of depth-space diagnostics. Making this \n"//&
@@ -2673,10 +2682,8 @@ subroutine extract_surface_state(CS, sfc_state)
                                       ! determine mixed layer properties (meter)
   real :: dh                          ! thickness of a layer within mixed layer (meter)
   real :: mass                        ! mass per unit area of a layer (kg/m2)
-  real :: T_freeze
-  real :: delT(SZI_(CS%G))            ! T-T_freeze
-  real :: HFrz = 20.0                 ! m, 'depth of effective freezing layer'
-
+  real :: T_freeze                    ! freezing temperature (oC)
+  real :: delT(SZI_(CS%G))            ! T-T_freeze (oC)
   logical :: use_temperature   ! If true, temp and saln used as state variables.
   integer :: i, j, k, is, ie, js, je, nz, numberOfErrors
   integer :: isd, ied, jsd, jed
@@ -2837,7 +2844,7 @@ subroutine extract_surface_state(CS, sfc_state)
   endif  ! (CS%Hmix >= 0.0)
 
   if (allocated(sfc_state%melt_potential)) then
-
+  !$OMP parallel do default(shared)
     do j=js,je
       do i=is,ie
         depth(i) = 0.0
@@ -2845,8 +2852,7 @@ subroutine extract_surface_state(CS, sfc_state)
       enddo
 
       do k=1,nz ; do i=is,ie
-        depth_ml = min(HFrz,CS%visc%MLD(i,j))
-        !depth_ml = CS%Hmix
+        depth_ml = min(CS%HFrz,CS%visc%MLD(i,j))
         if (depth(i) + h(i,j,k)*GV%H_to_m < depth_ml) then
           dh = h(i,j,k)*GV%H_to_m
         elseif (depth(i) < depth_ml) then
@@ -2855,25 +2861,22 @@ subroutine extract_surface_state(CS, sfc_state)
           dh = 0.0
         endif
 
-        ! p=0 OK, HFrz~20m, delT in deg*m
+        ! p=0 OK, HFrz ~ 10 to 20m
         call calculate_TFreeze(CS%tv%S(i,j,k), 0.0, T_freeze, CS%tv%eqn_of_state)
         depth(i) = depth(i) + dh
          delT(i) =  delT(i) + dh * (CS%tv%T(i,j,k) - T_freeze)
       enddo ; enddo
 
       do i=is,ie
-       ! set melt_potential to zero to avoid passing values set previously
        if (G%mask2dT(i,j)>0.) then
          ! time accumulated melt_potential, in J/m^2
          sfc_state%melt_potential(i,j) = sfc_state%melt_potential(i,j) +  (CS%tv%C_p * CS%GV%Rho0 * delT(i))
-         ! instantaneous melt_potential, in J/m^2
-         !sfc_state%melt_potential(i,j) =  CS%tv%C_p * CS%GV%Rho0 * delT(i)
        else
          sfc_state%melt_potential(i,j) = 0.0
        endif! G%mask2dT
       enddo 
     enddo ! end of j loop
-  endif
+  endif ! melt_potential
 
   if (allocated(sfc_state%salt_deficit) .and. associated(CS%tv%salt_deficit)) then
     !$OMP parallel do default(shared)

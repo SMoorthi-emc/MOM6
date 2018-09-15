@@ -38,7 +38,8 @@ type, public :: surface
     Hml, &         !< The mixed layer depth in m.
     u, &           !< The mixed layer zonal velocity in m s-1.
     v, &           !< The mixed layer meridional velocity in m s-1.
-    sea_lev, &     !< The sea level in m. If a reduced surface gravity is used, it is compensated in sea_lev.
+    sea_lev, &     !< The sea level in m. If a reduced surface gravity is 
+                   !! used, that is compensated for in sea_lev.
     melt_potential, & !< Amount of heat that can be used to melt sea ice, in J m-2.
                       !! This is computed w.r.t. surface freezing temperature.
     ocean_mass, &  !< The total mass of the ocean in kg m-2.
@@ -305,6 +306,7 @@ subroutine allocate_surface_state(sfc_state, G, use_temperature, do_integrals, &
                                               !! internal variables in the ice model.
   logical,     optional, intent(in)    :: use_meltpot      !< If true, allocate the space for melt potential
 
+  ! local variables
   logical :: use_temp, alloc_integ, use_melt_potential
   integer :: is, ie, js, je, isd, ied, jsd, jed
   integer :: isdB, iedB, jsdB, jedB
