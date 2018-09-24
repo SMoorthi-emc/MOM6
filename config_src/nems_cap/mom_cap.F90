@@ -2136,7 +2136,7 @@ module mom_cap_mod
     do i = 1, nfields
 
       if (field_defs(i)%assoc) then
-        write(tmpstr, *)trim(subname), tag, ' Field ', field_defs(i)%shortname, ':', &
+        write(tmpstr, *)trim(subname), tag, ' Field ', trim(field_defs(i)%shortname), ':', &
           lbound(field_defs(i)%farrayPtr,1), ubound(field_defs(i)%farrayPtr,1), &
           lbound(field_defs(i)%farrayPtr,2), ubound(field_defs(i)%farrayPtr,2)
         call ESMF_LogWrite(tmpstr, ESMF_LOGMSG_INFO, rc=dbrc)
