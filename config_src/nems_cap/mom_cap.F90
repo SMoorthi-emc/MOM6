@@ -1793,7 +1793,6 @@ module mom_cap_mod
     call ESMF_LogWrite("Before calling sbc forcing", ESMF_LOGMSG_INFO, rc=rc)
     call external_coupler_sbc_after(Ice_ocean_boundary, Ocean_sfc, nc, dt_cpld )
 !override for testing
-#ifdef test
     call ESMF_LogWrite("Before dumpMomInternal", ESMF_LOGMSG_INFO, rc=rc)
     !write(*,*) 'MOM: --- run phase called ---'
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
@@ -1823,8 +1822,7 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
-#endif
-!#ifdef test
+#ifdef test
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
     call dumpMomInternal(mom_grid_i, import_slice, "mean_merid_moment_flx", "will provide", Ice_ocean_boundary%v_flux)
     import_slice = import_slice + 1
@@ -1837,7 +1835,7 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
     call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
     export_slice = export_slice + 1
-!#endif
+#endif
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
@@ -2299,7 +2297,7 @@ module mom_cap_mod
     integer                  :: rc
 
 #ifdef MOM6_CAP
-    !return
+    return
 #endif
 
     !if(.not. write_diagnostics) return ! nop in production mode
