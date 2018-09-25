@@ -1682,7 +1682,7 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call State_getFldPtr(exportState,'accum_melt_potential',dataPtr_melt_potential,rc=rc)
+    call State_getFldPtr(exportState,'inst_melt_potential',dataPtr_melt_potential,rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1832,7 +1832,7 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
     !call dumpMomInternal(mom_grid_i, export_slice, "s_surf"    , "will provide", Ocean_sfc%s_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
-    call dumpMomInternal(mom_grid_i, export_slice, "accum_melt_potential", "will provide",   Ocean_sfc%melt_potential)
+    call dumpMomInternal(mom_grid_i, export_slice, "inst_melt_potential", "will provide",   Ocean_sfc%melt_potential)
     call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
     export_slice = export_slice + 1
 #endif
@@ -2237,7 +2237,7 @@ module mom_cap_mod
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"   , "will provide", data=Ocean_sfc%sea_lev)
     !call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential"   , "will provide", data=Ocean_sfc%frazil)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "accum_heat_frazil"   , "will provide", data=Ocean_sfc%frazil)
-    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "accum_melt_potential"   , "will provide", data=Ocean_sfc%melt_potential)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "inst_melt_potential"   , "will provide", data=Ocean_sfc%melt_potential)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=dataPtr_frzmlt)
 
   end subroutine MOM_FieldsSetup
