@@ -384,6 +384,7 @@ module mom_cap_mod
 #ifdef MOM6_CAP
   use ocean_model_mod,          only: ice_ocean_boundary_type
   use MOM_grid,                 only: ocean_grid_type
+  use MOM_domains,              only: pass_var
   use MOM_restart,              only: save_restart
 #else
   use ocean_types_mod,          only: ice_ocean_boundary_type, ocean_grid_type
@@ -1397,7 +1398,9 @@ module mom_cap_mod
 
     integer :: dth, dtm, dts, dt_cpld  = 86400
     integer :: isc,iec,jsc,jec,lbnd1,ubnd1,lbnd2,ubnd2
-    integer :: i,j,i1,j1
+    integer :: i,j,i1,j1,ig,jg
+    real    :: slp_L, slp_R, slp_C, slope, u_min, u_max
+
     real(ESMF_KIND_R8), allocatable        :: ofld(:,:), ocz(:,:), ocm(:,:)
     real(ESMF_KIND_R8), allocatable        :: mmmf(:,:), mzmf(:,:)
     integer :: nc
@@ -1409,13 +1412,19 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer :: dataPtr_frazil(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_melt_potential(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_frzmlt(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr_dhdx(:,:)
+    real(ESMF_KIND_R8), pointer :: dataPtr_dhdy(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_evap(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_sensi(:,:)
+
+    real(ESMF_KIND_R8), allocatable :: ssh(:,:)
+
     type(ocean_grid_type), pointer :: Ocean_grid
     character(240)              :: msgString
     character(len=*),parameter  :: subname='(mom_cap:ModelAdvance)'
 
     integer :: ijloc(2)
+
 
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
@@ -1496,7 +1505,6 @@ module mom_cap_mod
       import_slice = import_slice + 1
     endif
 
-
     ! rotate the lat/lon wind vector (CW) onto local tripolar coordinate system
 
     call mpp_get_compute_domain(Ocean_sfc%domain, isc, iec, jsc, jec)
@@ -1547,32 +1555,6 @@ module mom_cap_mod
     dataPtr_evap = - dataPtr_evap
     dataPtr_sensi = - dataPtr_sensi
 
-    write (msgString,*)' sin_rot bounds in Advance',&
-                       lbound(ocean_grid%sin_rot,1),&
-                       ubound(ocean_grid%sin_rot,1),&
-                       lbound(ocean_grid%sin_rot,2),&
-                       ubound(ocean_grid%sin_rot,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-    write (msgString,*)' cos_rot bounds in Advance',&
-                       lbound(ocean_grid%cos_rot,1),&
-                       ubound(ocean_grid%cos_rot,1),&
-                       lbound(ocean_grid%cos_rot,2),&
-                       ubound(ocean_grid%cos_rot,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-
-    write (msgString,*)' Min,Max sin_rot ',&
-                        real(minval(ocean_grid%sin_rot),4), real(maxval(ocean_grid%sin_rot),4)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-    write (msgString,*)' Min,Max cos_rot ',&
-                        real(minval(ocean_grid%cos_rot),4), real(maxval(ocean_grid%cos_rot),4)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-
-    write (msgString,*)' dataPtr_mzmf bounds in Advance',&
-                       lbound(dataPtr_mzmf,1),&
-                       ubound(dataPtr_mzmf,1),&
-                       lbound(dataPtr_mzmf,2),&
-                       ubound(dataPtr_mzmf,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
     write (msgString,*)'lbnd1,ubnd1, lbnd2, ubnd2 in Advance import',&
                        lbnd1,ubnd1,lbnd2,ubnd2
@@ -1692,14 +1674,144 @@ module mom_cap_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    call State_getFldPtr(exportState,'sea_surface_slope_zonal',dataPtr_dhdx,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call State_getFldPtr(exportState,'sea_surface_slope_merid',dataPtr_dhdy,rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
-    write (msgString,*)' MOM6 dataPtr_frzmlt bounds Advance',&
-                       lbound(dataPtr_frzmlt,1),&
-                       ubound(dataPtr_frzmlt,1),&
-                       lbound(dataPtr_frzmlt,2),&
-                       ubound(dataPtr_frzmlt,2)
+    write (msgString,*)'ocean_grid%isd, ocean_grid%ied, ocean_grid%jsd, ocean_grid%jed ',&
+                       ocean_grid%isd,ocean_grid%ied, &
+                       ocean_grid%jsd,ocean_grid%jed
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)'ocean_grid%idg_offset, ocean_grid%jdg_offset ',&
+                       ocean_grid%idg_offset,ocean_grid%jdg_offset
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
+    ! allocate a ssh variable with halos 
+    allocate(ssh(ocean_grid%isd:ocean_grid%ied,ocean_grid%jsd:ocean_grid%jed))
+   
+    write (msgString,*)' mask2dCv bounds in Advance',&
+                       lbound(ocean_grid%mask2dCv,1),&
+                       ubound(ocean_grid%mask2dCv,1),&
+                       lbound(ocean_grid%mask2dCv,2),&
+                       ubound(ocean_grid%mask2dCv,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' mask2dT bounds in Advance',&
+                       lbound(ocean_grid%mask2dT,1),&
+                       ubound(ocean_grid%mask2dT,1),&
+                       lbound(ocean_grid%mask2dT,2),&
+                       ubound(ocean_grid%mask2dT,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' ocean_grid%IdyT bounds in Advance',&
+                       lbound(ocean_grid%IdyT,1),&
+                       ubound(ocean_grid%IdyT,1),&
+                       lbound(ocean_grid%IdyT,2),&
+                       ubound(ocean_grid%IdyT,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' MOM6 sea_level  bounds Advance',&
+                       lbound(Ocean_sfc%sea_lev,1),&
+                       ubound(Ocean_sfc%sea_lev,1),&
+                       lbound(Ocean_sfc%sea_lev,2),&
+                       ubound(Ocean_sfc%sea_lev,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' MOM6 ssh  bounds Advance',&
+                       lbound(ssh,1),&
+                       ubound(ssh,1),&
+                       lbound(ssh,2),&
+                       ubound(ssh,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! the following code is lifted from NCAR nuopc driver mom_cap_methods
+    ! Make a copy of ssh in order to do a halo update. We use the usual MOM domain
+    ! in order to update halos. i.e. does not use global indexing.
+    do j=ocean_grid%jsc, ocean_grid%jec
+      jg = j + ocean_grid%jdg_offset
+      do i=ocean_grid%isc,ocean_grid%iec
+        ig = i + ocean_grid%idg_offset
+        ssh(i,j) = Ocean_sfc%sea_lev(ig,jg)
+      end do
+    end do
+
+    ! Update halo of ssh so we can calculate gradients
+    call pass_var(ssh, ocean_grid%domain)
+
+    ! d/dx ssh
+    do jg = jsc, jec
+      j  = jg + ocean_grid%jsc - jsc
+      j1 = jg + lbnd2 - jsc
+      do ig = isc,iec
+        i  = ig + ocean_grid%isc - isc
+        i1 = ig + lbnd1 - isc
+
+        ! This is a simple second-order difference
+        !dataPtr_dhdx(i1,j1) = 0.5 * (ssh(i+1,j) - ssh(i-1,j)) * ocean_grid%IdxT(i,j) * ocean_grid%mask2dT(ig,jg)
+        ! This is a PLM slope which might be less prone to the A-grid null mode
+        slp_L = (ssh(I,j) - ssh(I-1,j)) * ocean_grid%mask2dCu(i-1,j)
+        if (ocean_grid%mask2dCu(i-1,j)==0.) slp_L = 0.
+        slp_R = (ssh(I+1,j) - ssh(I,j)) * ocean_grid%mask2dCu(i,j)
+        if (ocean_grid%mask2dCu(i+1,j)==0.) slp_R = 0.
+        slp_C = 0.5 * (slp_L + slp_R)
+        if ( (slp_L * slp_R) > 0.0 ) then
+          ! This limits the slope so that the edge values are bounded by the
+          ! two cell averages spanning the edge.
+          u_min = min( ssh(i-1,j), ssh(i,j), ssh(i+1,j) )
+          u_max = max( ssh(i-1,j), ssh(i,j), ssh(i+1,j) )
+          slope = sign( min( abs(slp_C), 2.*min( ssh(i,j) - u_min, u_max - ssh(i,j) ) ), slp_C )
+        else
+          ! Extrema in the mean values require a PCM reconstruction avoid generating
+          ! larger extreme values.
+          slope = 0.0
+        end if
+        dataPtr_dhdx(i1,j1) = slope * ocean_grid%IdxT(i,j) * ocean_grid%mask2dT(i,j)
+        if (ocean_grid%mask2dT(i,j)==0.) dataPtr_dhdx(i1,j1) = 0.0
+      end do
+    end do
+
+    ! d/dy ssh
+    do jg = jsc, jec
+      j  = jg + ocean_grid%jsc - jsc
+      j1 = jg + lbnd2 - jsc
+      do ig = isc,iec
+        i  = ig + ocean_grid%isc - isc
+        i1 = ig + lbnd1 - isc
+
+        ! This is a simple second-order difference
+        !dataPtr_dhdy(i1,j1) = 0.5 * (ssh(i,j+1) - ssh(i,j-1)) * ocean_grid%IdyT(i,j) * ocean_grid%mask2dT(ig,jg)
+        ! This is a PLM slope which might be less prone to the A-grid null mode
+        slp_L = ssh(i,J) - ssh(i,J-1) * ocean_grid%mask2dCv(i,j-1)
+        if (ocean_grid%mask2dCv(i,j-1)==0.) slp_L = 0.
+        slp_R = ssh(i,J+1) - ssh(i,J) * ocean_grid%mask2dCv(i,j)
+        if (ocean_grid%mask2dCv(i,j+1)==0.) slp_R = 0.
+        slp_C = 0.5 * (slp_L + slp_R)
+        !write(6,*)'slp_L, slp_R,i,j,slp_L*slp_R', slp_L, slp_R,i,j,slp_L*slp_R
+        if ((slp_L * slp_R) > 0.0) then
+          ! This limits the slope so that the edge values are bounded by the
+          ! two cell averages spanning the edge.
+          u_min = min( ssh(i,j-1), ssh(i,j), ssh(i,j+1) )
+          u_max = max( ssh(i,j-1), ssh(i,j), ssh(i,j+1) )
+          slope = sign( min( abs(slp_C), 2.*min( ssh(i,j) - u_min, u_max - ssh(i,j) ) ), slp_C )
+        else
+          ! Extrema in the mean values require a PCM reconstruction avoid generating
+          ! larger extreme values.
+          slope = 0.0
+        end if
+        dataPtr_dhdy(i1,j1) = slope * ocean_grid%IdyT(i,j) * ocean_grid%mask2dT(i,j)
+        if (ocean_grid%mask2dT(i,j)==0.) dataPtr_dhdy(i1,j1) = 0.0
+      end do
+    end do
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    deallocate(ssh)
 
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
     dataPtr_melt_potential = -dataPtr_melt_potential/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
@@ -1794,6 +1906,7 @@ module mom_cap_mod
     call external_coupler_sbc_after(Ice_ocean_boundary, Ocean_sfc, nc, dt_cpld )
 !override for testing
     call ESMF_LogWrite("Before dumpMomInternal", ESMF_LOGMSG_INFO, rc=rc)
+#ifdef test
     !write(*,*) 'MOM: --- run phase called ---'
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
     call dumpMomInternal(mom_grid_i, import_slice, "mean_merid_moment_flx", "will provide", Ice_ocean_boundary%v_flux)
@@ -1822,20 +1935,22 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
+#endif
 #ifdef test
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
     call dumpMomInternal(mom_grid_i, import_slice, "mean_merid_moment_flx", "will provide", Ice_ocean_boundary%v_flux)
     import_slice = import_slice + 1
-
+#endif
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
     !call dumpMomInternal(mom_grid_i, export_slice, "s_surf"    , "will provide", Ocean_sfc%s_surf )
-    call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
-    call dumpMomInternal(mom_grid_i, export_slice, "inst_melt_potential", "will provide",   Ocean_sfc%melt_potential)
-    call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    !call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
+    !call dumpMomInternal(mom_grid_i, export_slice, "inst_melt_potential", "will provide",   Ocean_sfc%melt_potential)
+    !call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_slope_zonal", "will provide", dataPtr_dhdx )
+    call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_slope_merid", "will provide", dataPtr_dhdy )
     export_slice = export_slice + 1
-#endif
 
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
@@ -2199,6 +2314,8 @@ module mom_cap_mod
     character(len=*),parameter  :: subname='(mom_cap:MOM_FieldsSetup)'
 
   real(ESMF_KIND_R8), dimension(:,:), pointer :: dataPtr_frzmlt
+  real(ESMF_KIND_R8), dimension(:,:), pointer :: dataPtr_dhdx
+  real(ESMF_KIND_R8), dimension(:,:), pointer :: dataPtr_dhdy
 
   !!! fld_list_add(num, fldlist, stdname, transferOffer, data(optional), shortname(optional))
 
@@ -2239,6 +2356,9 @@ module mom_cap_mod
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "accum_heat_frazil"   , "will provide", data=Ocean_sfc%frazil)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "inst_melt_potential"   , "will provide", data=Ocean_sfc%melt_potential)
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "freezing_melting_potential", "will provide", data=dataPtr_frzmlt)
+
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_surface_slope_zonal", "will provide", data=dataPtr_dhdx)
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_surface_slope_merid", "will provide", data=dataPtr_dhdy)
 
   end subroutine MOM_FieldsSetup
 
@@ -2297,7 +2417,7 @@ module mom_cap_mod
     integer                  :: rc
 
 #ifdef MOM6_CAP
-    return
+    !return
 #endif
 
     !if(.not. write_diagnostics) return ! nop in production mode
