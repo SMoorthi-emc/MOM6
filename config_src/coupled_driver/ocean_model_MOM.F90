@@ -121,7 +121,7 @@ type, public ::  ocean_public_type
                         !! i.e. dzt(1) + eta_t + patm/rho0/grav (m)
     frazil =>NULL(), &  !< Accumulated heating (in Joules/m^2) from frazil
                         !! formation in the ocean.
-    melt_potential => NULL(), & !< Accumulated heat used to melt sea ice (in J/m^2)
+    melt_potential => NULL(), & !< Instantaneous heat used to melt sea ice (in J/m^2)
     area => NULL()      !< cell area of the ocean surface, in m2.
   type(coupler_2d_bc_type) :: fields    !< A structure that may contain named
                                         !! arrays of tracer-related surface fields.
