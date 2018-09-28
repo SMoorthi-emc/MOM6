@@ -1417,7 +1417,9 @@ module mom_cap_mod
     real(ESMF_KIND_R8), pointer :: dataPtr_evap(:,:)
     real(ESMF_KIND_R8), pointer :: dataPtr_sensi(:,:)
 
-    real(ESMF_KIND_R8), allocatable :: ssh(:,:)
+    real(ESMF_KIND_R8), allocatable ::  ssh(:,:)
+    real(ESMF_KIND_R8), allocatable :: sshx(:,:)
+    real(ESMF_KIND_R8), allocatable :: sshy(:,:)
 
     type(ocean_grid_type), pointer :: Ocean_grid
     character(240)              :: msgString
@@ -1555,16 +1557,6 @@ module mom_cap_mod
     dataPtr_evap = - dataPtr_evap
     dataPtr_sensi = - dataPtr_sensi
 
-
-    write (msgString,*)'lbnd1,ubnd1, lbnd2, ubnd2 in Advance import',&
-                       lbnd1,ubnd1,lbnd2,ubnd2
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-    write (msgString,*)'isc,iec, jsc, jec in Advance import',&
-                       isc,iec,jsc,jec
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-    write (msgString,*)'ocean_grid%isc, ocean_grid%jsc in Advance import',&
-                       ocean_grid%isc,ocean_grid%jsc
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     
     ! "grid" uses the usual MOM domain that has halos
     ! and does not use global indexing.
@@ -1685,6 +1677,18 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
+    write (msgString,*)'lbnd1,ubnd1, lbnd2, ubnd2 in Advance export',&
+                       lbnd1,ubnd1,lbnd2,ubnd2
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)'isc,iec, jsc, jec in Advance export',&
+                       isc,iec,jsc,jec
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)'ocean_grid%isc, ocean_grid%jsc in Advance export',&
+                       ocean_grid%isc,ocean_grid%jsc
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    write (msgString,*)'ocean_grid%iec, ocean_grid%jec in Advance export',&
+                       ocean_grid%iec,ocean_grid%jec
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     write (msgString,*)'ocean_grid%isd, ocean_grid%ied, ocean_grid%jsd, ocean_grid%jed ',&
                        ocean_grid%isd,ocean_grid%ied, &
                        ocean_grid%jsd,ocean_grid%jed
@@ -1693,30 +1697,13 @@ module mom_cap_mod
                        ocean_grid%idg_offset,ocean_grid%jdg_offset
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
-    ! allocate a ssh variable with halos 
-    allocate(ssh(ocean_grid%isd:ocean_grid%ied,ocean_grid%jsd:ocean_grid%jed))
-   
-    write (msgString,*)' mask2dCv bounds in Advance',&
-                       lbound(ocean_grid%mask2dCv,1),&
-                       ubound(ocean_grid%mask2dCv,1),&
-                       lbound(ocean_grid%mask2dCv,2),&
-                       ubound(ocean_grid%mask2dCv,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-
-    write (msgString,*)' mask2dT bounds in Advance',&
-                       lbound(ocean_grid%mask2dT,1),&
-                       ubound(ocean_grid%mask2dT,1),&
-                       lbound(ocean_grid%mask2dT,2),&
-                       ubound(ocean_grid%mask2dT,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-
-    write (msgString,*)' ocean_grid%IdyT bounds in Advance',&
-                       lbound(ocean_grid%IdyT,1),&
-                       ubound(ocean_grid%IdyT,1),&
-                       lbound(ocean_grid%IdyT,2),&
-                       ubound(ocean_grid%IdyT,2)
-    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-
+    ! allocate a ssh variable with halos, local indexing 
+    allocate( ssh(ocean_grid%isd:ocean_grid%ied,ocean_grid%jsd:ocean_grid%jed))
+    allocate(sshx(ocean_grid%isd:ocean_grid%ied,ocean_grid%jsd:ocean_grid%jed))
+    allocate(sshy(ocean_grid%isd:ocean_grid%ied,ocean_grid%jsd:ocean_grid%jed))
+     ssh = 0.0_ESMF_KIND_R8
+    sshx = 0.0_ESMF_KIND_R8
+    sshy = 0.0_ESMF_KIND_R8
     write (msgString,*)' MOM6 sea_level  bounds Advance',&
                        lbound(Ocean_sfc%sea_lev,1),&
                        ubound(Ocean_sfc%sea_lev,1),&
@@ -1731,29 +1718,47 @@ module mom_cap_mod
                        ubound(ssh,2)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
 
+    write (msgString,*)' dataPtr_dhdy bounds in Advance',&
+                       lbound(dataPtr_dhdy,1),&
+                       ubound(dataPtr_dhdy,1),&
+                       lbound(dataPtr_dhdy,2),&
+                       ubound(dataPtr_dhdy,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    write (msgString,*)' cos_rot bounds in Advance',&
+                       lbound(ocean_grid%cos_rot,1),&
+                       ubound(ocean_grid%cos_rot,1),&
+                       lbound(ocean_grid%cos_rot,2),&
+                       ubound(ocean_grid%cos_rot,2)
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! the following code is lifted from NCAR nuopc driver mom_cap_methods
+    ! note: the following code is modified from NCAR nuopc driver mom_cap_methods
+    !
     ! Make a copy of ssh in order to do a halo update. We use the usual MOM domain
     ! in order to update halos. i.e. does not use global indexing.
-    do j=ocean_grid%jsc, ocean_grid%jec
-      jg = j + ocean_grid%jdg_offset
-      do i=ocean_grid%isc,ocean_grid%iec
-        ig = i + ocean_grid%idg_offset
-        ssh(i,j) = Ocean_sfc%sea_lev(ig,jg)
+    !
+    ! here, isc,iec,jsc,jec are global indices on cap domain (no halos)
+    write (msgString,*)'ssh loop bounds i1,j1 : ',&
+                       isc-ocean_grid%idg_offset,iec-ocean_grid%idg_offset,&
+                       jsc-ocean_grid%jdg_offset,jec-ocean_grid%jdg_offset
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+
+    do j=jsc,jec
+      do i=isc,iec
+        j1 = j - ocean_grid%jdg_offset
+        i1 = i - ocean_grid%idg_offset
+        ssh(i1,j1) = Ocean_sfc%sea_lev(i,j)
       end do
     end do
 
     ! Update halo of ssh so we can calculate gradients
     call pass_var(ssh, ocean_grid%domain)
 
+    ! calculation of slope on native mom domains (local indexing, halos)
     ! d/dx ssh
-    do jg = jsc, jec
-      j  = jg + ocean_grid%jsc - jsc
-      j1 = jg + lbnd2 - jsc
-      do ig = isc,iec
-        i  = ig + ocean_grid%isc - isc
-        i1 = ig + lbnd1 - isc
-
+    do j = ocean_grid%jsd,ocean_grid%jed 
+      do i = ocean_grid%isd,ocean_grid%ied
         ! This is a simple second-order difference
         !dataPtr_dhdx(i1,j1) = 0.5 * (ssh(i+1,j) - ssh(i-1,j)) * ocean_grid%IdxT(i,j) * ocean_grid%mask2dT(ig,jg)
         ! This is a PLM slope which might be less prone to the A-grid null mode
@@ -1773,19 +1778,14 @@ module mom_cap_mod
           ! larger extreme values.
           slope = 0.0
         end if
-        dataPtr_dhdx(i1,j1) = slope * ocean_grid%IdxT(i,j) * ocean_grid%mask2dT(i,j)
-        if (ocean_grid%mask2dT(i,j)==0.) dataPtr_dhdx(i1,j1) = 0.0
+        sshx(i,j) = slope * ocean_grid%IdxT(i,j) * ocean_grid%mask2dT(i,j)
+        if (ocean_grid%mask2dT(i,j)==0.) sshx(i,j) = 0.0
       end do
     end do
 
     ! d/dy ssh
-    do jg = jsc, jec
-      j  = jg + ocean_grid%jsc - jsc
-      j1 = jg + lbnd2 - jsc
-      do ig = isc,iec
-        i  = ig + ocean_grid%isc - isc
-        i1 = ig + lbnd1 - isc
-
+    do j = ocean_grid%jsd,ocean_grid%jed 
+      do i = ocean_grid%isd,ocean_grid%ied
         ! This is a simple second-order difference
         !dataPtr_dhdy(i1,j1) = 0.5 * (ssh(i,j+1) - ssh(i,j-1)) * ocean_grid%IdyT(i,j) * ocean_grid%mask2dT(ig,jg)
         ! This is a PLM slope which might be less prone to the A-grid null mode
@@ -1806,12 +1806,30 @@ module mom_cap_mod
           ! larger extreme values.
           slope = 0.0
         end if
-        dataPtr_dhdy(i1,j1) = slope * ocean_grid%IdyT(i,j) * ocean_grid%mask2dT(i,j)
-        if (ocean_grid%mask2dT(i,j)==0.) dataPtr_dhdy(i1,j1) = 0.0
+        sshy(i,j) = slope * ocean_grid%IdyT(i,j) * ocean_grid%mask2dT(i,j)
+        if (ocean_grid%mask2dT(i,j)==0.) sshy(i,j) = 0.0
       end do
     end do
+  
+    write (msgString,*)'dataPtr_dhdx loop bounds i1,j1 : ',&
+                        lbnd1 + ocean_grid%isc - lbnd1, ubnd1 + ocean_grid%isc - lbnd1
+                        lbnd2 + ocean_grid%jsc - lbnd2, ubnd2 + ocean_grid%jsc - lbnd2
+    call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    ! "grid" uses the usual MOM domain that has halos
+    ! and does not use global indexing.
+    ! x,y => latlon
+    do j  = lbnd2, ubnd2
+      do i = lbnd1, ubnd1
+        j1 = j + ocean_grid%jsc - lbnd2
+        i1 = i + ocean_grid%isc - lbnd1
+        dataPtr_dhdx(i,j) = ocean_grid%cos_rot(i1,j1)*sshx(i1,j1) &
+                          + ocean_grid%sin_rot(i1,j1)*sshy(i1,j1)
+        dataPtr_dhdy(i,j) = ocean_grid%cos_rot(i1,j1)*sshy(i1,j1) &
+                          - ocean_grid%sin_rot(i1,j1)*sshx(i1,j1)
+      enddo
+    enddo
+    deallocate(ssh); deallocate(sshx); deallocate(sshy)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    deallocate(ssh)
 
     dataPtr_frazil = dataPtr_frazil/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
     dataPtr_melt_potential = -dataPtr_melt_potential/dt_cpld !convert from J/m^2 to W/m^2 for CICE coupling
