@@ -1812,7 +1812,7 @@ module mom_cap_mod
     end do
   
     write (msgString,*)'dataPtr_dhdx loop bounds i1,j1 : ',&
-                        lbnd1 + ocean_grid%isc - lbnd1, ubnd1 + ocean_grid%isc - lbnd1
+                        lbnd1 + ocean_grid%isc - lbnd1, ubnd1 + ocean_grid%isc - lbnd1, &
                         lbnd2 + ocean_grid%jsc - lbnd2, ubnd2 + ocean_grid%jsc - lbnd2
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     ! "grid" uses the usual MOM domain that has halos
