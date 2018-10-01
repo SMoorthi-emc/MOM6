@@ -1424,9 +1424,9 @@ module mom_cap_mod
     type(ocean_grid_type), pointer :: Ocean_grid
     character(240)              :: msgString
     character(len=*),parameter  :: subname='(mom_cap:ModelAdvance)'
-
+    ! helper flag for debugging bounds
+    logical :: BoundsDebug = .false.
     integer :: ijloc(2)
-
 
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
@@ -1507,12 +1507,9 @@ module mom_cap_mod
       import_slice = import_slice + 1
     endif
 
-    ! rotate the lat/lon wind vector (CW) onto local tripolar coordinate system
-
     call mpp_get_compute_domain(Ocean_sfc%domain, isc, iec, jsc, jec)
 
     call get_ocean_grid(ocean_state, ocean_grid)
-
 
    if(.not. ocean_solo) then
     call State_getFldPtr(exportState,'ocean_mask',dataPtr_mask,rc=rc)
@@ -1554,10 +1551,10 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
-    dataPtr_evap = - dataPtr_evap
+    dataPtr_evap  = - dataPtr_evap
     dataPtr_sensi = - dataPtr_sensi
 
-    
+    ! rotate the lat/lon wind vector (CW) onto local tripolar coordinate system
     ! "grid" uses the usual MOM domain that has halos
     ! and does not use global indexing.
     ! latlon => x,y
@@ -1565,20 +1562,9 @@ module mom_cap_mod
     allocate(mmmf(lbnd1:ubnd1,lbnd2:ubnd2))
     do j  = lbnd2, ubnd2
       do i = lbnd1, ubnd1
-        !j1 = j - lbnd2 + jsc  ! work around local vs global indexing
-        !i1 = i - lbnd1 + isc
         j1 = j + ocean_grid%jsc - lbnd2
         i1 = i + ocean_grid%isc - lbnd1
-
-        !mzmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mzmf(i,j) &
-        !          + Ocean_grid%sin_rot(i1,j1)*dataPtr_mmmf(i,j)
-        !mmmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mmmf(i,j) &
-        !          - Ocean_grid%sin_rot(i1,j1)*dataPtr_mzmf(i,j)
         !SIS2 fast thermo
-        !mzmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mzmf(i,j) &
-        !          - Ocean_grid%sin_rot(i1,j1)*dataPtr_mmmf(i,j)
-        !mmmf(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_mmmf(i,j) &
-        !          + Ocean_grid%sin_rot(i1,j1)*dataPtr_mzmf(i,j)
         ! local bounds on rotation,account for halos
         mzmf(i,j) = ocean_grid%cos_rot(i1,j1)*dataPtr_mzmf(i,j) &
                   - ocean_grid%sin_rot(i1,j1)*dataPtr_mmmf(i,j)
@@ -1635,7 +1621,7 @@ module mom_cap_mod
     enddo
     deallocate(ofld)
 
-    ! Now rotate ocn current from tripolar grid back to lat/lon grid (CCW)
+    ! Prepare variables for export
     allocate(ocz(lbnd1:ubnd1,lbnd2:ubnd2))
     allocate(ocm(lbnd1:ubnd1,lbnd2:ubnd2))
 
@@ -1677,6 +1663,7 @@ module mom_cap_mod
       file=__FILE__)) &
       return  ! bail out
 
+    if(BoundsDebug)then
     write (msgString,*)'lbnd1,ubnd1, lbnd2, ubnd2 in Advance export',&
                        lbnd1,ubnd1,lbnd2,ubnd2
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
@@ -1696,6 +1683,7 @@ module mom_cap_mod
     write (msgString,*)'ocean_grid%idg_offset, ocean_grid%jdg_offset ',&
                        ocean_grid%idg_offset,ocean_grid%jdg_offset
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    endif !BoundsDebug
 
     ! allocate a ssh variable with halos, local indexing 
     allocate( ssh(ocean_grid%isd:ocean_grid%ied,ocean_grid%jsd:ocean_grid%jed))
@@ -1704,6 +1692,8 @@ module mom_cap_mod
      ssh = 0.0_ESMF_KIND_R8
     sshx = 0.0_ESMF_KIND_R8
     sshy = 0.0_ESMF_KIND_R8
+
+    if(BoundsDebug)then
     write (msgString,*)' MOM6 sea_level  bounds Advance',&
                        lbound(Ocean_sfc%sea_lev,1),&
                        ubound(Ocean_sfc%sea_lev,1),&
@@ -1731,19 +1721,23 @@ module mom_cap_mod
                        lbound(ocean_grid%cos_rot,2),&
                        ubound(ocean_grid%cos_rot,2)
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    endif !BoundsDebug
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! note: the following code is modified from NCAR nuopc driver mom_cap_methods
+    ! where is the rotation in that system? 
     !
     ! Make a copy of ssh in order to do a halo update. We use the usual MOM domain
     ! in order to update halos. i.e. does not use global indexing.
     !
     ! here, isc,iec,jsc,jec are global indices on cap domain (no halos)
+    if(BoundsDebug)then
     write (msgString,*)'ssh loop bounds i1,j1 : ',&
                        isc-ocean_grid%idg_offset,iec-ocean_grid%idg_offset,&
                        jsc-ocean_grid%jdg_offset,jec-ocean_grid%jdg_offset
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
-
+    endif !BoundsDebug
+    
     do j=jsc,jec
       do i=isc,iec
         j1 = j - ocean_grid%jdg_offset
@@ -1756,9 +1750,10 @@ module mom_cap_mod
     call pass_var(ssh, ocean_grid%domain)
 
     ! calculation of slope on native mom domains (local indexing, halos)
+    ! stay inside of halos (ie 2:79,2:97)
     ! d/dx ssh
-    do j = ocean_grid%jsd,ocean_grid%jed 
-      do i = ocean_grid%isd,ocean_grid%ied
+    do j = ocean_grid%jsd+1,ocean_grid%jed-1
+      do i = ocean_grid%isd+1,ocean_grid%ied-1
         ! This is a simple second-order difference
         !dataPtr_dhdx(i1,j1) = 0.5 * (ssh(i+1,j) - ssh(i-1,j)) * ocean_grid%IdxT(i,j) * ocean_grid%mask2dT(ig,jg)
         ! This is a PLM slope which might be less prone to the A-grid null mode
@@ -1784,8 +1779,8 @@ module mom_cap_mod
     end do
 
     ! d/dy ssh
-    do j = ocean_grid%jsd,ocean_grid%jed 
-      do i = ocean_grid%isd,ocean_grid%ied
+    do j = ocean_grid%jsd+1,ocean_grid%jed-1
+      do i = ocean_grid%isd+1,ocean_grid%ied-1
         ! This is a simple second-order difference
         !dataPtr_dhdy(i1,j1) = 0.5 * (ssh(i,j+1) - ssh(i,j-1)) * ocean_grid%IdyT(i,j) * ocean_grid%mask2dT(ig,jg)
         ! This is a PLM slope which might be less prone to the A-grid null mode
@@ -1811,10 +1806,14 @@ module mom_cap_mod
       end do
     end do
   
+    if(BoundsDebug)then
     write (msgString,*)'dataPtr_dhdx loop bounds i1,j1 : ',&
                         lbnd1 + ocean_grid%isc - lbnd1, ubnd1 + ocean_grid%isc - lbnd1, &
                         lbnd2 + ocean_grid%jsc - lbnd2, ubnd2 + ocean_grid%jsc - lbnd2
     call ESMF_LogWrite(trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
+    endif !BoundsDebug
+  
+    ! rotate slopes from tripolar grid back to lat/lon grid (CCW)
     ! "grid" uses the usual MOM domain that has halos
     ! and does not use global indexing.
     ! x,y => latlon
@@ -1864,20 +1863,7 @@ module mom_cap_mod
     enddo
     dataPtr_frzmlt = max(-1000.0,min(1000.0,dataPtr_frzmlt))
 
-    !!!!!!!
-    ! Clobber the fields to look at sin_rot,cos_rot
-    !!!!!!!
-    !do j  = lbnd2, ubnd2
-    !  do i = lbnd1, ubnd1
-    !    j1 = j - lbnd2 + jsc  ! work around local vs global indexing
-    !    i1 = i - lbnd1 + isc
-        !j1 = j + ocean_grid%jsc - lbnd2
-        !i1 = i + ocean_grid%isc - lbnd1
-    !            dataPtr_frazil(i,j) = Ocean_grid%sin_rot(i1,j1)
-    !    dataPtr_melt_potential(i,j) = Ocean_grid%cos_rot(i1,j1)
-    !  enddo
-    !enddo
-
+    ! rotate ocn current from tripolar grid back to lat/lon grid (CCW)
     ! "grid" uses the usual MOM domain that has halos
     ! and does not use global indexing.
     ! x,y => latlon
@@ -1885,20 +1871,10 @@ module mom_cap_mod
     ocm = dataPtr_ocm
     do j  = lbnd2, ubnd2
       do i = lbnd1, ubnd1
-        !j1 = j - lbnd2 + jsc  ! work around local vs global indexing
-        !i1 = i - lbnd1 + isc
         j1 = j + ocean_grid%jsc - lbnd2
         i1 = i + ocean_grid%isc - lbnd1
-        !dataPtr_ocz(i,j) = Ocean_grid%cos_rot(i1,j1)*ocz(i,j) &
-        !                 - Ocean_grid%sin_rot(i1,j1)*ocm(i,j)
-        !dataPtr_ocm(i,j) = Ocean_grid%cos_rot(i1,j1)*ocm(i,j) &
-        !                 + Ocean_grid%sin_rot(i1,j1)*ocz(i,j)
         !SIS2 ice_model.F90
         !Rotate the velocities from the ocean coordinates to lat/lon coordinates.
-        !dataPtr_ocz(i,j) = Ocean_grid%cos_rot(i1,j1)*ocz(i,j) &
-        !                 + Ocean_grid%sin_rot(i1,j1)*ocm(i,j)
-        !dataPtr_ocm(i,j) = Ocean_grid%cos_rot(i1,j1)*ocm(i,j) &
-        !                 - Ocean_grid%sin_rot(i1,j1)*ocz(i,j)
         ! local bounds on rotation,account for halos
         dataPtr_ocz(i,j) = ocean_grid%cos_rot(i1,j1)*ocz(i,j) &
                          + ocean_grid%sin_rot(i1,j1)*ocm(i,j)
@@ -1922,9 +1898,7 @@ module mom_cap_mod
 
     call ESMF_LogWrite("Before calling sbc forcing", ESMF_LOGMSG_INFO, rc=rc)
     call external_coupler_sbc_after(Ice_ocean_boundary, Ocean_sfc, nc, dt_cpld )
-!override for testing
     call ESMF_LogWrite("Before dumpMomInternal", ESMF_LOGMSG_INFO, rc=rc)
-#ifdef test
     !write(*,*) 'MOM: --- run phase called ---'
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
     call dumpMomInternal(mom_grid_i, import_slice, "mean_merid_moment_flx", "will provide", Ice_ocean_boundary%v_flux)
@@ -1953,12 +1927,12 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
-#endif
 #ifdef test
     call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
     call dumpMomInternal(mom_grid_i, import_slice, "mean_merid_moment_flx", "will provide", Ice_ocean_boundary%v_flux)
     import_slice = import_slice + 1
-#endif
+
+    call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"          , "will provide", Ocean_sfc%sea_lev)
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
@@ -1969,7 +1943,7 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_slope_zonal", "will provide", dataPtr_dhdx )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_slope_merid", "will provide", dataPtr_dhdy )
     export_slice = export_slice + 1
-
+#endif
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
 
@@ -2435,9 +2409,8 @@ module mom_cap_mod
     integer                  :: rc
 
 #ifdef MOM6_CAP
-    !return
+    return
 #endif
-
     !if(.not. write_diagnostics) return ! nop in production mode
     if(ocean_solo) return ! do not dump internal fields in ocean solo mode
 
