@@ -1927,23 +1927,12 @@ module mom_cap_mod
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"   , "will provide", Ocean_sfc%sea_lev)
-#ifdef test
-    call dumpMomInternal(mom_grid_i, import_slice, "mean_zonal_moment_flx", "will provide", Ice_ocean_boundary%u_flux)
-    call dumpMomInternal(mom_grid_i, import_slice, "mean_merid_moment_flx", "will provide", Ice_ocean_boundary%v_flux)
-    import_slice = import_slice + 1
-
-    call dumpMomInternal(mom_grid_i, export_slice, "sea_lev"          , "will provide", Ocean_sfc%sea_lev)
-    call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_zonal", "will provide", Ocean_sfc%u_surf )
-    call dumpMomInternal(mom_grid_i, export_slice, "ocn_current_merid", "will provide", Ocean_sfc%v_surf )
-    call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_temperature", "will provide", Ocean_sfc%t_surf)
-    !call dumpMomInternal(mom_grid_i, export_slice, "s_surf"    , "will provide", Ocean_sfc%s_surf )
-    !call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
-    !call dumpMomInternal(mom_grid_i, export_slice, "inst_melt_potential", "will provide",   Ocean_sfc%melt_potential)
-    !call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
+    call dumpMomInternal(mom_grid_i, export_slice, "s_surf"    , "will provide", Ocean_sfc%s_surf )
+    call dumpMomInternal(mom_grid_i, export_slice, "accum_heat_frazil"         , "will provide", Ocean_sfc%frazil)
+    call dumpMomInternal(mom_grid_i, export_slice, "inst_melt_potential", "will provide",   Ocean_sfc%melt_potential)
+    call dumpMomInternal(mom_grid_i, export_slice, "freezing_melting_potential", "will provide",   dataPtr_frzmlt)
     call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_slope_zonal", "will provide", dataPtr_dhdx )
     call dumpMomInternal(mom_grid_i, export_slice, "sea_surface_slope_merid", "will provide", dataPtr_dhdy )
-    export_slice = export_slice + 1
-#endif
     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM Model_ADVANCE: ")
   end subroutine ModelAdvance
 
