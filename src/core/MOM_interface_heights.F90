@@ -16,7 +16,7 @@ implicit none ; private
 
 public find_eta
 
-!> Calculates the heights of sruface or all interfaces from layer thicknesses.
+!> Calculates the heights of surface or all interfaces from layer thicknesses.
 interface find_eta
   module procedure find_eta_2d, find_eta_3d
 end interface find_eta
