@@ -1606,20 +1606,20 @@ module mom_cap_mod
       allocate(stky3(lbnd1:ubnd1,lbnd2:ubnd2))
       do j  = lbnd2, ubnd2
         do i = lbnd1, ubnd1
-          j1 = j - lbnd2 + jsc  ! work around local vs global indexing
-          i1 = i - lbnd1 + isc
+          j1 = j + ocean_grid%jsc - lbnd2
+          i1 = i + ocean_grid%isc - lbnd1
           stkx1(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stkx1(i,j) &
-                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stky1(i,j)
+                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stky1(i,j)
           stky1(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stky1(i,j) &
-                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx1(i,j)
+                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx1(i,j)
           stkx2(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stkx2(i,j) &
-                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stky2(i,j)
+                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stky2(i,j)
           stky2(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stky2(i,j) &
-                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx2(i,j)
+                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx2(i,j)
           stkx3(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stkx3(i,j) &
-                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stky3(i,j)
+                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stky3(i,j)
           stky3(i,j) = Ocean_grid%cos_rot(i1,j1)*dataPtr_stky3(i,j) &
-                     - Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx3(i,j)
+                     + Ocean_grid%sin_rot(i1,j1)*dataPtr_stkx3(i,j)
 
           Ocean_state%Waves%STKx0(i-1+Ocean_state%grid%iscb,j-1+Ocean_state%grid%jscb,1) = stkx1(i,j)
           Ocean_state%Waves%STKy0(i-1+Ocean_state%grid%iscb,j-1+Ocean_state%grid%jscb,1) = stky1(i,j)
