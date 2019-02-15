@@ -407,7 +407,7 @@ module mom_cap_mod
     type(ocean_public_type),       pointer :: ocean_public_type_ptr
     type(ocean_state_type),        pointer :: ocean_state_type_ptr
     type(ice_ocean_boundary_type), pointer :: ice_ocean_boundary_type_ptr
-!    type(ocean_grid_type),         pointer :: ocean_grid_ptr
+!   type(ocean_grid_type),         pointer :: ocean_grid_ptr
   end type
 
   type ocean_internalstate_wrapper
@@ -462,45 +462,35 @@ module mom_cap_mod
     ! the NUOPC model component will register the generic methods
     call NUOPC_CompDerive(gcomp, model_routine_SS, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
     
     ! switching to IPD versions
     call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-      userRoutine=InitializeP0, phase=0, rc=rc)
+                                    userRoutine=InitializeP0, phase=0, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
 
     ! set entry point for methods that require specific implementation
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-      phaseLabelList=(/"IPDv01p1"/), userRoutine=InitializeAdvertise, rc=rc)
+                                 phaseLabelList=(/"IPDv01p1"/), userRoutine=InitializeAdvertise, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-      phaseLabelList=(/"IPDv01p3"/), userRoutine=InitializeRealize, rc=rc)
+                                 phaseLabelList=(/"IPDv01p3"/), userRoutine=InitializeRealize, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
     
     ! attach specializing method(s)
     call NUOPC_CompSpecialize(gcomp, specLabel=model_label_Advance, &
-      specRoutine=ModelAdvance, rc=rc)
+                              specRoutine=ModelAdvance, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
     call NUOPC_CompSpecialize(gcomp, specLabel=model_label_Finalize, &
-      specRoutine=ocean_model_finalize, rc=rc)
+                              specRoutine=ocean_model_finalize, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
 
   end subroutine SetServices
 
@@ -529,68 +519,59 @@ module mom_cap_mod
 
     ! Switch to IPDv01 by filtering all other phaseMap entries
     call NUOPC_CompFilterPhaseMap(gcomp, ESMF_METHOD_INITIALIZE, &
-      acceptStringList=(/"IPDv01p"/), rc=rc)
+                                  acceptStringList=(/"IPDv01p"/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
     call ESMF_AttributeGet(gcomp, name="DumpFields", value=value, defaultValue="true", &
-      convention="NUOPC", purpose="Instance", rc=rc)
+                           convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
     write_diagnostics=(trim(value)=="true")
     call ESMF_LogWrite('MOM_CAP:DumpFields = '//trim(value), ESMF_LOGMSG_INFO, rc=dbrc)  
 
     call ESMF_AttributeGet(gcomp, name="ProfileMemory", value=value, defaultValue="true", &
-      convention="NUOPC", purpose="Instance", rc=rc)
+                           convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    profile_memory=(trim(value)/="false")
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    profile_memory = (trim(value)/="false")
     call ESMF_LogWrite('MOM_CAP:ProfileMemory = '//trim(value), ESMF_LOGMSG_INFO, rc=dbrc)  
 
     call ESMF_AttributeGet(gcomp, name="OceanSolo", value=value, defaultValue="false", &
-      convention="NUOPC", purpose="Instance", rc=rc)
+                           convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    ocean_solo=(trim(value)=="true")
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    ocean_solo = (trim(value)=="true")
     call ESMF_LogWrite('MOM_CAP:OceanSolo = '//trim(value), ESMF_LOGMSG_INFO, rc=dbrc)  
 
     ! Retrieve restart_interval in (seconds)
     ! A restart_interval value of 0 means no restart will be written.
     call ESMF_AttributeGet(gcomp, name="restart_interval", value=value, defaultValue="0", &
-      convention="NUOPC", purpose="Instance", rc=rc)
+                           convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
     restart_interval = ESMF_UtilString2Int(value, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+      line=__LINE__, file=__FILE__)) return  ! bail out
 
     if(restart_interval < 0) then
       call ESMF_LogSetError(ESMF_RC_NOT_VALID, &
-        msg="MOM_CAP: OCN attribute: restart_interval cannot be negative.", &
-        line=__LINE__, &
-        file=__FILE__, rcToReturn=rc)
+                            msg="MOM_CAP: OCN attribute: restart_interval cannot be negative.", &
+                            line=__LINE__, file=__FILE__, rcToReturn=rc)
       return
     endif
     call ESMF_LogWrite('MOM_CAP:restart_interval = '//trim(value), ESMF_LOGMSG_INFO, rc=dbrc)  
 
     call ESMF_AttributeGet(gcomp, name="GridAttachArea", value=value, defaultValue="false", &
-      convention="NUOPC", purpose="Instance", rc=rc)
+                           convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    grid_attach_area=(trim(value)=="true")
+      line=__LINE__, file=__FILE__)) return  ! bail out
+
+    grid_attach_area = (trim(value)=="true")
     call ESMF_LogWrite('MOM_CAP:GridAttachArea = '//trim(value), ESMF_LOGMSG_INFO, rc=dbrc)  
     
   end subroutine

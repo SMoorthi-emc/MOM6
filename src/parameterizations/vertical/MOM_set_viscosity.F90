@@ -277,14 +277,14 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
   integer :: itt, maxitt=20
   type(ocean_OBC_type), pointer :: OBC => NULL()
 
-  is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec ; nz = G%ke
-  Isq = G%IscB ; Ieq = G%IecB ; Jsq = G%JscB ; Jeq = G%JecB
-  nkmb = GV%nk_rho_varies ; nkml = GV%nkml
-  h_neglect = GV%H_subroundoff
+  is   = G%isc  ; ie  = G%iec  ; js  = G%jsc  ; je  = G%jec ; nz = G%ke
+  Isq  = G%IscB ; Ieq = G%IecB ; Jsq = G%JscB ; Jeq = G%JecB
+  nkmb = GV%nk_rho_varies      ; nkml = GV%nkml
+  h_neglect  = GV%H_subroundoff
   Rho0x400_G = 400.0*(GV%Rho0/GV%g_Earth)*GV%m_to_H
-  Vol_quit = 0.9*GV%Angstrom + h_neglect
-  H_to_m = GV%H_to_m ; m_to_H = GV%m_to_H
-  C2pi_3 = 8.0*atan(1.0)/3.0
+  Vol_quit   = 0.9*GV%Angstrom + h_neglect
+  H_to_m     = GV%H_to_m ; m_to_H = GV%m_to_H
+  C2pi_3     = 8.0*atan(1.0)/3.0
 
   if (.not.associated(CS)) call MOM_error(FATAL,"MOM_vert_friction(BBL): "//&
          "Module must be initialized before it is used.")
@@ -374,20 +374,20 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
 
   if (.not.use_BBL_EOS) Rml_vel(:,:) = 0.0
 
-!$OMP parallel do default(none) shared(u, v, h, tv, visc, G, GV, CS, Rml, is, ie, js, je,  &
-!$OMP                                  nz, Isq, Ieq, Jsq, Jeq, nkmb, h_neglect, Rho0x400_G,&
-!$OMP                                  C2pi_3, U_bg_sq, cdrag_sqrt,K2,use_BBL_EOS,OBC,     &
-!$OMP                                  maxitt,nkml,m_to_H,H_to_m,Vol_quit,D_u,D_v,mask_u,mask_v) &
-!$OMP                          private(do_i,h_at_vel,htot_vel,hwtot,hutot,Thtot,Shtot,     &
-!$OMP                                  hweight,v_at_u,u_at_v,ustar,T_EOS,S_EOS,press,      &
-!$OMP                                  dR_dT, dR_dS,ustarsq,htot,T_vel,S_vel,Rml_vel,      &
-!$OMP                                  oldfn,Dfn,Dh,Rhtot,C2f,ustH,root,bbl_thick,         &
-!$OMP                                  D_vel,tmp,Dp,Dm,a_3,a,a_12,slope,Vol_open,Vol_2_reg,&
-!$OMP                                  C24_a,apb_4a,Iapb,a2x48_apb3,ax2_3apb,Vol_direct,   &
-!$OMP                                  L_direct,Ibma_2,L,vol,vol_below,Vol_err,h_vel_pos,  &
-!$OMP                                  BBL_visc_frac,h_vel,L0,Vol_0,dV_dL2,dVol,L_max,     &
-!$OMP                                  L_min,Vol_err_min,Vol_err_max,BBL_frac,Cell_width,  &
-!$OMP                                  gam,Rayleigh, Vol_tol, tmp_val_m1_to_p1)
+!!$OMP parallel do default(none) shared(u, v, h, tv, visc, G, GV, CS, Rml, is, ie, js, je,  &
+!!$OMP                                  nz, Isq, Ieq, Jsq, Jeq, nkmb, h_neglect, Rho0x400_G,&
+!!$OMP                                  C2pi_3, U_bg_sq, cdrag_sqrt,K2,use_BBL_EOS,OBC,     &
+!!$OMP                                  maxitt,nkml,m_to_H,H_to_m,Vol_quit,D_u,D_v,mask_u,mask_v) &
+!!$OMP                          private(do_i,h_at_vel,htot_vel,hwtot,hutot,Thtot,Shtot,     &
+!!$OMP                                  hweight,v_at_u,u_at_v,ustar,T_EOS,S_EOS,press,      &
+!!$OMP                                  dR_dT, dR_dS,ustarsq,htot,T_vel,S_vel,Rml_vel,      &
+!!$OMP                                  oldfn,Dfn,Dh,Rhtot,C2f,ustH,root,bbl_thick,         &
+!!$OMP                                  D_vel,tmp,Dp,Dm,a_3,a,a_12,slope,Vol_open,Vol_2_reg,&
+!!$OMP                                  C24_a,apb_4a,Iapb,a2x48_apb3,ax2_3apb,Vol_direct,   &
+!!$OMP                                  L_direct,Ibma_2,L,vol,vol_below,Vol_err,h_vel_pos,  &
+!!$OMP                                  BBL_visc_frac,h_vel,L0,Vol_0,dV_dL2,dVol,L_max,     &
+!!$OMP                                  L_min,Vol_err_min,Vol_err_max,BBL_frac,Cell_width,  &
+!!$OMP                                  gam,Rayleigh, Vol_tol, tmp_val_m1_to_p1)
   do j=Jsq,Jeq ; do m=1,2
 
     if (m==1) then
@@ -515,21 +515,21 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
 ! the bottommost CS%Hbbl of the water column for determining
 ! the quadratic bottom drag.
         htot_vel = 0.0 ; hwtot = 0.0 ; hutot = 0.0
-        Thtot = 0.0 ; Shtot = 0.0
+        Thtot    = 0.0 ; Shtot = 0.0
         do k=nz,1,-1
 
-          if (htot_vel>=CS%Hbbl) exit ! terminate the k loop
+          if (htot_vel >= CS%Hbbl) exit ! terminate the k loop
 
           hweight = MIN(CS%Hbbl - htot_vel, h_at_vel(i,k))
           if (hweight < 1.5*GV%Angstrom + h_neglect) cycle
 
           htot_vel  = htot_vel + h_at_vel(i,k)
-          hwtot = hwtot + hweight
+          hwtot     = hwtot    + hweight
 
           if ((.not.CS%linear_drag) .and. (hweight >= 0.0)) then ; if (m==1) then
             v_at_u = set_v_at_u(v, h, G, i, j, k, mask_v, OBC)
-            hutot = hutot + hweight * sqrt(u(I,j,k)*u(I,j,k) + &
-                                           v_at_u*v_at_u + U_bg_sq)
+            hutot  = hutot + hweight * sqrt(u(I,j,k)*u(I,j,k) + &
+                                            v_at_u*v_at_u + U_bg_sq)
           else
             u_at_v = set_u_at_v(u, h, G, i, j, k, mask_u, OBC)
             hutot = hutot + hweight * sqrt(v(i,J,k)*v(i,J,k) + &
@@ -573,7 +573,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
     do i=is,ie ; if (do_i(i)) then
 !  The 400.0 in this expression is the square of a constant proposed
 !  by Killworth and Edwards, 1999, in equation (2.20).
-      ustarsq = Rho0x400_G * ustar(i)**2
+      ustarsq = Rho0x400_G * ustar(i)*ustar(i)
       htot = 0.0
 
 !   This block of code calculates the thickness of a stratification
@@ -587,20 +587,24 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
 
           oldfn = dR_dT(i)*(Thtot - T_vel(i,k)*htot) + &
                   dR_dS(i)*(Shtot - S_vel(i,k)*htot)
-          if (oldfn >= ustarsq) exit
+!         if (oldfn >= ustarsq) exit
 
-          Dfn = (dR_dT(i)*(T_vel(i,k) - T_vel(i,k-1)) + &
-                 dR_dS(i)*(S_vel(i,k) - S_vel(i,k-1))) * &
-                (h_at_vel(i,k) + htot)
+          if (oldfn < ustarsq) then
 
-          if ((oldfn + Dfn) <= ustarsq) then
-            Dh = h_at_vel(i,k)
-          else
-            Dh = h_at_vel(i,k) * sqrt((ustarsq-oldfn)/Dfn)
+            Dfn = (dR_dT(i)*(T_vel(i,k) - T_vel(i,k-1)) + &
+                   dR_dS(i)*(S_vel(i,k) - S_vel(i,k-1))) * &
+                  (h_at_vel(i,k) + htot)
+
+            if ((oldfn + Dfn) <= ustarsq) then
+              Dh = h_at_vel(i,k)
+            else
+              Dh = h_at_vel(i,k) * sqrt((ustarsq-oldfn)/Dfn)
+            endif
+
+            htot  = htot + Dh
+            Thtot = Thtot + T_vel(i,k)*Dh
+            Shtot = Shtot + S_vel(i,k)*Dh
           endif
-
-          htot = htot + Dh
-          Thtot = Thtot + T_vel(i,k)*Dh ; Shtot = Shtot + S_vel(i,k)*Dh
         enddo
         if ((oldfn < ustarsq) .and. h_at_vel(i,1) > 0.0) then
           ! Layer 1 might be part of the BBL.
@@ -622,7 +626,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
             Dh = h_at_vel(i,k) * sqrt((ustarsq-oldfn)/Dfn)
           endif
 
-          htot = htot + Dh
+          htot  = htot + Dh
           Rhtot = Rhtot + GV%Rlay(k)*Dh
         enddo
         if (nkml>0) then
@@ -664,8 +668,11 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
           bbl_thick = (htot * ustH) / (0.5*ustH + root)
         endif
       else
-        bbl_thick = htot / (0.5 + sqrt(0.25 + htot*htot*C2f*C2f/ &
-          ((ustar(i)*ustar(i)) * (m_to_H**2) )))
+        tmp = htot*C2f / (max(ustar(i),1.0e-10)*m_to_H)
+        bbl_thick = htot / (0.5 + sqrt(0.25 + tmp*tmp))
+
+!       bbl_thick = htot / (0.5 + sqrt(0.25 + htot*htot*C2f*C2f/ &
+!         ((ustar(i)*ustar(i)) * (m_to_H**2) )))
 
         if (bbl_thick < CS%BBL_thick_min) bbl_thick = CS%BBL_thick_min
       endif
@@ -683,22 +690,22 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
         if (m==1) then
           D_vel = D_u(I,j)
           tmp = G%mask2dCu(I,j+1) * D_u(I,j+1)
-          Dp = 2.0 * D_vel * tmp / (D_vel + tmp)
+          Dp = (D_vel+D_vel) * tmp / max(D_vel + tmp, 1.0e-12)
           tmp = G%mask2dCu(I,j-1) * D_u(I,j-1)
-          Dm = 2.0 * D_vel * tmp / (D_vel + tmp)
+          Dm = (D_vel+D_vel) * tmp / max(D_vel + tmp, 1.0e-12)
         else
           D_vel = D_v(i,J)
           tmp = G%mask2dCv(i+1,J) * D_v(i+1,J)
-          Dp = 2.0 * D_vel * tmp / (D_vel + tmp)
+          Dp = (D_vel+D_vel) * tmp / max(D_vel + tmp, 1.0e-12)
           tmp = G%mask2dCv(i-1,J) * D_v(i-1,J)
-          Dm = 2.0 * D_vel * tmp / (D_vel + tmp)
+          Dm = (D_vel+D_vel) * tmp / max(D_vel + tmp, 1.0e-12)
         endif
         if (Dm > Dp) then ; tmp = Dp ; Dp = Dm ; Dm = tmp ; endif
 
         ! Convert the D's to the units of thickness.
         Dp = m_to_H*Dp ; Dm = m_to_H*Dm ; D_vel = m_to_H*D_vel
 
-        a_3 = (Dp + Dm - 2.0*D_vel) ; a = 3.0*a_3 ; a_12 = 0.25*a_3
+        a_3 = (Dp + Dm - D_vel - D_vel) ; a = 3.0*a_3 ; a_12 = 0.25*a_3
         slope = Dp - Dm
         ! If the curvature is small enough, there is no reason not to assume
         ! a uniformly sloping or flat bottom.
@@ -744,7 +751,8 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
           vol = vol + h_vel(i,k)
           h_vel_pos = h_vel(i,k) + h_neglect
 
-          if (vol >= Vol_open) then ; L(K) = 1.0
+          if (vol >= Vol_open) then
+            L(K) = 1.0
           elseif (a == 0) then ! The bottom has no curvature.
             L(K) = sqrt(2.0*vol*Iapb)
           elseif (a > 0) then
@@ -755,7 +763,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
               !   vol = 0.5*L^2*(slope + a/3*(3-4L)).
               if (a2x48_apb3*vol < 1e-8) then ! Could be 1e-7?
                 ! There is a very good approximation here for massless layers.
-                L0 = sqrt(2.0*vol*Iapb) ; L(K) = L0*(1.0 + ax2_3apb*L0)
+                L0 = sqrt(max(2.0*vol*Iapb,0.0)) ; L(K) = L0*(1.0 + ax2_3apb*L0)
               else
                 L(K) = apb_4a * (1.0 - &
                          2.0 * cos(C1_3*acos(a2x48_apb3*vol - 1.0) - C2pi_3))
@@ -846,7 +854,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
           ! and the Raleigh drag that acting on each layer.
           if (L(K) > L(K+1)) then
             if (vol_below < bbl_thick) then
-              BBL_frac = (1.0-vol_below/bbl_thick)**2
+              BBL_frac = (1.0-vol_below/(bbl_thick*bbl_thick))
               BBL_visc_frac = BBL_visc_frac + BBL_frac*(L(K) - L(K+1))
             else
               BBL_frac = 0.0
@@ -1062,7 +1070,7 @@ subroutine set_viscous_ML(u, v, h, tv, forces, visc, dt, G, GV, CS, symmetrize)
     dR_dS, &    !   Partial derivative of the density at the base of layer nkml
                 ! (roughly the base of the mixed layer) with salinity, in units
                 ! of kg m-3 psu-1.
-    ustar, &    !   The surface friction velocity under ice shelves, in m s-1.
+    ustar, &    ! The surface friction velocity under ice shelves, in m s-1.
     press, &    ! The pressure at which dR_dT and dR_dS are evaluated, in Pa.
     T_EOS, &    ! T_EOS and S_EOS are the potential temperature and salnity at which dR_dT and dR_dS
     S_EOS       ! which dR_dT and dR_dS are evaluated, in degC and PSU.
@@ -1428,7 +1436,7 @@ subroutine set_viscous_ML(u, v, h, tv, forces, visc, dt, G, GV, CS, symmetrize)
               Dh = h_at_vel(i,k) * sqrt((ustarsq-oldfn)/Dfn)
             endif
 
-            htot(i) = htot(i) + Dh
+            htot(i)  = htot(i) + Dh
             Rhtot(i) = Rhtot(i) + Rlay*Dh
           enddo
           if (GV%Rlay(nz)*htot(i) - Rhtot(i) < ustarsq) &

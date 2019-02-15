@@ -261,11 +261,11 @@ subroutine horizontal_viscosity(u, v, h, diffu, diffv, MEKE, VarMix, G, GV, CS, 
                      ! point (h or q point) (nondimensional)
   real :: visc_bound_rem ! fraction of overall viscous bounds that
                          ! remain to be applied (nondim)
-  real :: Kh_scale  ! A factor between 0 and 1 by which the horizontal
-                    ! Laplacian viscosity is rescaled
-  real :: RoScl     ! The scaling function for MEKE source term
-  real :: FatH      ! abs(f) at h-point for MEKE source term (s-1)
-  real :: local_strain ! Local variable for interpolating computed strain rates (s-1).
+  real :: Kh_scale       ! A factor between 0 and 1 by which the horizontal
+                         ! Laplacian viscosity is rescaled
+  real :: RoScl          ! The scaling function for MEKE source term
+  real :: FatH           ! abs(f) at h-point for MEKE source term (s-1)
+  real :: local_strain   ! Local variable for interpolating computed strain rates (s-1).
 
   logical :: rescale_Kh, legacy_bound
   logical :: find_FrictWork
@@ -326,6 +326,7 @@ subroutine horizontal_viscosity(u, v, h, diffu, diffv, MEKE, VarMix, G, GV, CS, 
 !$OMP                                  bhstr_xx, bhstr_xy,FatH,RoScl, hu, hv, h_u, h_v, &
 !$OMP                                  vort_xy,vort_xy_dx,vort_xy_dy,Vort_mag,AhLth,KhLth, &
 !$OMP                                  div_xx, div_xx_dx, div_xx_dy,                  &
+!$OMP                                  local_strain,                                  &
 !$OMP                                  Shear_mag, h2uq, h2vq, hq, Kh_scale, hrat_min)
   do k=1,nz
 
