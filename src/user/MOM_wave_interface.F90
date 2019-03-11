@@ -1004,7 +1004,11 @@ subroutine get_StokesSL_LiFoxKemper(ustar, hbl, GV, US_SL, LA)
          *sqrt( 2.0 * PI *kstar * z0) &
          *erfc( sqrt( 2.0 * kstar * z0 ) )
     us_sl = us * (0.715 + r1 + r2 + r3 + r4)
-    LA = sqrt(ustar/us_sl)
+    if (us_sl > 0.0) then
+      LA = sqrt(ustar/us_sl)
+    else
+      LA = 1.e8
+    endif
   else
     us_sl = 0.0
     LA=1.e8
@@ -1295,14 +1299,14 @@ subroutine ust_2_u10_coare3p5(USTair,U10,GV)
     z0=z0sm+z0rough
     CD = ( vonkar / log(10/z0) )**2 ! Compute CD from derived roughness
     u10 = USTair/sqrt(CD);!Compute new u10 from derived CD, while loop
-                       ! ends and checks for convergence...CT counter
-                       ! makes sure loop doesn't run away if function
-                       ! doesn't converge.  This code was produced offline
-                       ! and converged rapidly (e.g. 2 cycles)
-                       ! for ustar=0.0001:0.0001:10.
+                          ! ends and checks for convergence...CT counter
+                          ! makes sure loop doesn't run away if function
+                          ! doesn't converge.  This code was produced offline
+                          ! and converged rapidly (e.g. 2 cycles)
+                          ! for ustar=0.0001:0.0001:10.
     if (CT>20) then
       u10 = USTair/sqrt(0.0015) ! I don't expect to get here, but just
-                              !  in case it will output a reasonable value.
+                                !  in case it will output a reasonable value.
       exit
     endif
   enddo
