@@ -1003,7 +1003,11 @@ subroutine get_StokesSL_LiFoxKemper(ustar, hbl, GV, US_SL, LA)
          *sqrt( 2.0 * PI *kstar * z0) &
          *erfc( sqrt( 2.0 * kstar * z0 ) )
     us_sl = us * (0.715 + r1 + r2 + r3 + r4)
-    LA = sqrt(ustar/us_sl)
+    if (us_sl > 0.0) then
+      LA = sqrt(ustar/us_sl)
+    else
+      LA = 1.e8
+    endif
   else
     us_sl = 0.0
     LA=1.e8

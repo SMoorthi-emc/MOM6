@@ -397,8 +397,7 @@ module mom_cap_mod
   integer              :: scalar_field_count = 0
   integer              :: scalar_field_idx_grid_nx = 0
   integer              :: scalar_field_idx_grid_ny = 0
-  character(len=*),parameter :: u_file_u = &
-       __FILE__
+  character(len=*),parameter :: u_file_u = __FILE__
 
 #ifdef CESMCOUPLED
   logical :: cesm_coupled = .true.
@@ -857,10 +856,10 @@ contains
    !call fld_list_add(fldsToOcn_num, fldsToOcn, "seaice_melt_water"          , "will provide")
    !call fld_list_add(fldsToOcn_num, fldsToOcn, "seaice_melt_heat"           , "will provide")
 
-  !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_runoff_rate"           , "will provide")
-  !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_calving_rate"          , "will provide")
-  !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_runoff_heat_flx"       , "will provide")
-  !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_calving_heat_flx"      , "will provide")
+   !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_runoff_rate"           , "will provide")
+   !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_calving_rate"          , "will provide")
+   !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_runoff_heat_flx"       , "will provide")
+   !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_calving_heat_flx"      , "will provide")
 
     !--------- export fields -------------
     call fld_list_add(fldsFrOcn_num, fldsFrOcn, "ocean_mask"                 , "will provide")
@@ -1438,7 +1437,7 @@ contains
     ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
 
     call ESMF_ClockPrint(clock, options="currTime", &
-      preString="------>Advancing OCN from: ", unit=msgString, rc=rc)
+                         preString="------>Advancing OCN from: ", unit=msgString, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
     call ESMF_LogWrite(subname//trim(msgString), ESMF_LOGMSG_INFO, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -1462,7 +1461,7 @@ contains
 
     if(write_diagnostics) then
       call NUOPC_Write(importState, fileNamePrefix='field_ocn_import_', &
-        timeslice=import_slice, relaxedFlag=.true., rc=rc)
+                       timeslice=import_slice, relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
       import_slice = import_slice + 1
     endif

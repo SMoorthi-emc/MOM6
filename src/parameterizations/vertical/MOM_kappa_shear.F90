@@ -200,7 +200,8 @@ subroutine Calculate_kappa_shear(u_in, v_in, h, tv, p_surf, kappa_io, tke_io, &
 #ifdef ADD_DIAGNOSTICS
   !$OMP                                I_Ld2_3d,dz_Int_3d, &
 #endif
-  !$OMP                                tv,G,GV,CS,kappa_io,dz_massless,k0dt,p_surf,dt,tke_io,kv_io)
+  !$OMP                                tv,G,GV,CS,kappa_io,dz_massless,p_surf,dt,tke_io,kv_io)
+! !$OMP                                tv,G,GV,CS,kappa_io,dz_massless,k0dt,p_surf,dt,tke_io,kv_io)
   do j=js,je
     do k=1,nz ; do i=is,ie
       h_2d(i,k) = h(i,j,k)*GV%H_to_Z
@@ -443,7 +444,7 @@ subroutine Calc_kappa_shear_vertex(u_in, v_in, h, T_in, S_in, tv, p_surf, kappa_
   real :: dz_in_lay     !   The running sum of the thickness in a layer, in Z.
   real :: k0dt          ! The background diffusivity times the timestep, in Z2.
   real :: dz_massless   ! A layer thickness that is considered massless, in Z.
-  real :: I_hwt ! The inverse of the masked thickness weights, in H-1.
+  real :: I_hwt         ! The inverse of the masked thickness weights, in H-1.
   real :: I_Prandtl
   logical :: use_temperature  !  If true, temperature and salinity have been
                         ! allocated and are being used as state variables.
@@ -493,10 +494,12 @@ subroutine Calc_kappa_shear_vertex(u_in, v_in, h, T_in, S_in, tv, p_surf, kappa_
   I_Prandtl = 0.0 ; if (CS%Prandtl_turb > 0.0) I_Prandtl = 1.0 / CS%Prandtl_turb
 
   !$OMP parallel do default(private) shared(jsB,jeB,isB,ieB,nz,h,u_in,v_in,use_temperature,new_kappa, &
+  !$OMP                                t_in, s_in,                                                    &
 #ifdef ADD_DIAGNOSTICS
-  !$OMP                                I_Ld2_3d,dz_Int_3d, &
+  !$OMP                                I_Ld2_3d,dz_Int_3d,                                            &
 #endif
-  !$OMP                                tv,G,GV,CS,kappa_io,dz_massless,k0dt,p_surf,dt,tke_io,kv_io)
+  !$OMP                                tv,G,GV,CS,kappa_io,dz_massless,p_surf,dt,tke_io,kv_io)
+! !$OMP                                tv,G,GV,CS,kappa_io,dz_massless,k0dt,p_surf,dt,tke_io,kv_io)
   do J=JsB,JeB
     J2 = mod(J,2)+1 ; J2m1 = 3-J2 ! = mod(J-1,2)+1
 
@@ -510,22 +513,32 @@ subroutine Calc_kappa_shear_vertex(u_in, v_in, h, T_in, S_in, tv, p_surf, kappa_
                    v_in(i+1,J,k) * (G%mask2dCv(i+1,J) * (h(i+1,j,k) + h(i+1,j+1,k))) ) / &
                   ((G%mask2dCv(i,J)   * (h(i,j,k)   + h(i,j+1,k)) + &
                     G%mask2dCv(i+1,J) * (h(i+1,j,k) + h(i+1,j+1,k))) + GV%H_subroundoff)
-      I_hwt = 1.0 / (((G%mask2dT(i,j) * h(i,j,k) + G%mask2dT(i+1,j+1) * h(i+1,j+1,k)) + &
-                      (G%mask2dT(i+1,j) * h(i+1,j,k) + G%mask2dT(i,j+1) * h(i,j+1,k))) + &
-                     GV%H_subroundoff)
+!     I_hwt = 1.0 / (((G%mask2dT(i,j) * h(i,j,k) + G%mask2dT(i+1,j+1) * h(i+1,j+1,k)) + &
+!                     (G%mask2dT(i+1,j) * h(i+1,j,k) + G%mask2dT(i,j+1) * h(i,j+1,k))) + &
+!                    GV%H_subroundoff)
+      I_hwt = ((G%mask2dT(i,j)   * h(i,j,k)   + G%mask2dT(i+1,j+1) * h(i+1,j+1,k)) + &
+               (G%mask2dT(i+1,j) * h(i+1,j,k) + G%mask2dT(i,j+1)   * h(i,j+1,k)))  + &
+                     GV%H_subroundoff
+      if (abs(I_hwt) > 1.0e-12) then
+        I_hwt = 1.0 / I_hwt
+
       if (use_temperature) then
-        T_2d(I,k) = ( ((G%mask2dT(i,j) * h(i,j,k)) * T_in(i,j,k) + &
+        T_2d(I,k) = ( ((G%mask2dT(i,j)     * h(i,j,k))     * T_in(i,j,k)      + &
                        (G%mask2dT(i+1,j+1) * h(i+1,j+1,k)) * T_in(i+1,j+1,k)) + &
-                      ((G%mask2dT(i+1,j) * h(i+1,j,k)) * T_in(i+1,j,k) + &
-                       (G%mask2dT(i,j+1) * h(i,j+1,k)) * T_in(i,j+1,k)) ) * I_hwt
-        S_2d(I,k) = ( ((G%mask2dT(i,j) * h(i,j,k)) * S_in(i,j,k) + &
+                      ((G%mask2dT(i+1,j)   * h(i+1,j,k))   * T_in(i+1,j,k)    + &
+                       (G%mask2dT(i,j+1)   * h(i,j+1,k))   * T_in(i,j+1,k)) ) * I_hwt
+        S_2d(I,k) = ( ((G%mask2dT(i,j)     * h(i,j,k))     * S_in(i,j,k) + &
                        (G%mask2dT(i+1,j+1) * h(i+1,j+1,k)) * S_in(i+1,j+1,k)) + &
-                      ((G%mask2dT(i+1,j) * h(i+1,j,k)) * S_in(i+1,j,k) + &
-                       (G%mask2dT(i,j+1) * h(i,j+1,k)) * S_in(i,j+1,k)) ) * I_hwt
+                      ((G%mask2dT(i+1,j)   * h(i+1,j,k))   * S_in(i+1,j,k) + &
+                       (G%mask2dT(i,j+1)   * h(i,j+1,k))   * S_in(i,j+1,k)) ) * I_hwt
       endif
-      h_2d(I,k) = GV%H_to_Z * ((G%mask2dT(i,j) * h(i,j,k) + G%mask2dT(i+1,j+1) * h(i+1,j+1,k)) + &
-                               (G%mask2dT(i+1,j) * h(i+1,j,k) + G%mask2dT(i,j+1) * h(i,j+1,k)) ) / &
-                              ((G%mask2dT(i,j) + G%mask2dT(i+1,j+1)) + &
+      else
+        T_2d(I,k) = T_in(i,j,k)
+        S_2d(I,k) = S_in(i,j,k)
+      endif
+      h_2d(I,k) = GV%H_to_Z * ((G%mask2dT(i,j)   * h(i,j,k)   + G%mask2dT(i+1,j+1) * h(i+1,j+1,k)) + &
+                               (G%mask2dT(i+1,j) * h(i+1,j,k) + G%mask2dT(i,j+1)   * h(i,j+1,k)) ) / &
+                              ((G%mask2dT(i,j)   + G%mask2dT(i+1,j+1)) + &
                                (G%mask2dT(i+1,j) + G%mask2dT(i,j+1)) + 1.0e-36 )
 !      h_2d(I,k) = 0.25*((h(i,j,k) + h(i+1,j+1,k)) + (h(i+1,j,k) + h(i,j+1,k)))*GV%H_to_Z
 !      h_2d(I,k) = ((h(i,j,k)**2 + h(i+1,j+1,k)**2) + &

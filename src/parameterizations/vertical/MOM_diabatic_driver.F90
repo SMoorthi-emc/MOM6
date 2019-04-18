@@ -612,9 +612,9 @@ subroutine diabatic(u, v, h, tv, Hml, fluxes, visc, ADp, CDp, dt, Time_end, &
       Kd_salt, visc%Kv_shear, CS%KPP_NLTheat, CS%KPP_NLTscalar, Waves=Waves)
 
     if (associated(Hml)) then
-      !$OMP parallel default(shared)
+!     !$OMP parallel default(shared)
       call KPP_get_BLD(CS%KPP_CSp, Hml(:,:), G)
-      !$OMP end parallel
+!     !$OMP end parallel
       call pass_var(Hml, G%domain, halo=1)
       ! If visc%MLD exists, copy KPP's BLD into it
       if (associated(visc%MLD)) visc%MLD(:,:) = Hml(:,:)
@@ -837,6 +837,7 @@ subroutine diabatic(u, v, h, tv, Hml, fluxes, visc, ADp, CDp, dt, Time_end, &
       ea_s(i,j,k) = (GV%Z_to_H**2) * dt * hval * Kd_salt(i,j,k)
       eb_s(i,j,k-1) = ea_s(i,j,k)
     enddo ; enddo ; enddo
+    !$OMP parallel do default(shared)
     do j=js,je ; do i=is,ie
       eb_t(i,j,nz) = 0. ; eb_s(i,j,nz) = 0.
     enddo ; enddo
@@ -951,7 +952,7 @@ subroutine diabatic(u, v, h, tv, Hml, fluxes, visc, ADp, CDp, dt, Time_end, &
           endif
 
           ebtr(i,j,k-1) = eb_s(i,j,k-1) + add_ent
-          eatr(i,j,k) = ea_s(i,j,k) + add_ent
+          eatr(i,j,k)   = ea_s(i,j,k)   + add_ent
         else
           ebtr(i,j,k-1) = eb_s(i,j,k-1) ; eatr(i,j,k) = ea_s(i,j,k)
         endif
@@ -961,7 +962,7 @@ subroutine diabatic(u, v, h, tv, Hml, fluxes, visc, ADp, CDp, dt, Time_end, &
              (0.5 * (h(i,j,k-1) + h(i,j,k)) + &
               h_neglect)
           ebtr(i,j,k-1) = ebtr(i,j,k-1) + add_ent
-          eatr(i,j,k) = eatr(i,j,k) + add_ent
+          eatr(i,j,k)   = eatr(i,j,k)   + add_ent
         endif ; endif
       enddo ; enddo
       do i=is,ie ; eatr(i,j,1) = ea_s(i,j,1) ; enddo
@@ -984,13 +985,12 @@ subroutine diabatic(u, v, h, tv, Hml, fluxes, visc, ADp, CDp, dt, Time_end, &
     do k=nz,2,-1 ; do j=js,je ; do i=is,ie
       if (visc%Kd_extra_S(i,j,k) > 0.0) then
         add_ent = ((dt * visc%Kd_extra_S(i,j,k)) * GV%Z_to_H**2) / &
-           (0.5 * (h(i,j,k-1) + h(i,j,k))  + &
-            h_neglect)
+                  (0.5 * (h(i,j,k-1) + h(i,j,k))  + h_neglect)
       else
         add_ent = 0.0
       endif
       ebtr(i,j,k-1) = eb_s(i,j,k-1) + add_ent
-      eatr(i,j,k) = ea_s(i,j,k) + add_ent
+      eatr(i,j,k)   = ea_s(i,j,k)   + add_ent
     enddo ; enddo ; enddo
 
     ! For passive tracers, the changes in thickness due to boundary fluxes has yet to be applied
@@ -1591,9 +1591,9 @@ subroutine legacy_diabatic(u, v, h, tv, Hml, fluxes, visc, ADp, CDp, dt, Time_en
 
     call cpu_clock_begin(id_clock_kpp)
     if (CS%debug) then
-      call hchksum(CS%KPP_temp_flux, "before KPP_applyNLT netHeat",G%HI,haloshift=0, scale=GV%H_to_m)
-      call hchksum(CS%KPP_salt_flux, "before KPP_applyNLT netSalt",G%HI,haloshift=0, scale=GV%H_to_m)
-      call hchksum(CS%KPP_NLTheat, "before KPP_applyNLT NLTheat",G%HI,haloshift=0)
+      call hchksum(CS%KPP_temp_flux, "before KPP_applyNLT netHeat",  G%HI,haloshift=0, scale=GV%H_to_m)
+      call hchksum(CS%KPP_salt_flux, "before KPP_applyNLT netSalt",  G%HI,haloshift=0, scale=GV%H_to_m)
+      call hchksum(CS%KPP_NLTheat,   "before KPP_applyNLT NLTheat",  G%HI,haloshift=0)
       call hchksum(CS%KPP_NLTscalar, "before KPP_applyNLT NLTscalar",G%HI,haloshift=0)
     endif
     ! Apply non-local transport of heat and salt
@@ -1640,19 +1640,22 @@ subroutine legacy_diabatic(u, v, h, tv, Hml, fluxes, visc, ADp, CDp, dt, Time_en
   ! based on KD and target densities (ie. does remapping as well).
   if (CS%useALEalgorithm) then
 
+!$omp parallel do default(shared)
     do j=js,je ; do i=is,ie
-      ea(i,j,1) = 0.
-    enddo ; enddo
-!$OMP parallel do default(none) shared(is,ie,js,je,nz,h_neglect,h,ea,GV,dt,Kd_int,eb) &
-!$OMP                          private(hval)
-    do k=2,nz ; do j=js,je ; do i=is,ie
-      hval=1.0/(h_neglect + 0.5*(h(i,j,k-1) + h(i,j,k)))
-      ea(i,j,k) = (GV%Z_to_H**2) * dt * hval * Kd_int(i,j,K)
-      eb(i,j,k-1) = ea(i,j,k)
-    enddo ; enddo ; enddo
-    do j=js,je ; do i=is,ie
+      ea(i,j,1)  = 0.
       eb(i,j,nz) = 0.
     enddo ; enddo
+!$OMP parallel do default(none) shared(is,ie,js,je,nz,h_neglect,h,ea,GV,dt,Kd_int,eb) &
+!$OMP                           private(hval)
+    do k=2,nz ; do j=js,je ; do i=is,ie
+!     hval=1.0/max(1.0e-10, (h_neglect + 0.5*(h(i,j,k-1) + h(i,j,k))))
+      hval=1.0/(h_neglect + 0.5*(h(i,j,k-1) + h(i,j,k)))
+      ea(i,j,k) = (GV%Z_to_H**2) * dt * hval * Kd_int(i,j,k)
+      eb(i,j,k-1) = ea(i,j,k)
+    enddo ; enddo ; enddo
+!   do j=js,je ; do i=is,ie
+!     eb(i,j,nz) = 0.
+!   enddo ; enddo
     if (showCallTree) call callTree_waypoint("done setting ea,eb from Kd_int (diabatic)")
 
   else ! .not. CS%useALEalgorithm

@@ -323,12 +323,12 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
 
   !$OMP parallel do default(shared)
   do J=js-1,je ; do i=is-1,ie+1
-    D_v(i,J) = 0.5*(G%bathyT(i,j) + G%bathyT(i,j+1))
+    D_v(i,J)    = 0.5*(G%bathyT(i,j) + G%bathyT(i,j+1))
     mask_v(i,J) = G%mask2dCv(i,J)
   enddo ; enddo
   !$OMP parallel do default(shared)
   do j=js-1,je+1 ; do I=is-1,ie
-    D_u(I,j) = 0.5*(G%bathyT(i,j) + G%bathyT(i+1,j))
+    D_u(I,j)    = 0.5*(G%bathyT(i,j) + G%bathyT(i+1,j))
     mask_u(I,j) = G%mask2dCu(I,j)
   enddo ; enddo
 
@@ -375,10 +375,10 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
 
   if (.not.use_BBL_EOS) Rml_vel(:,:) = 0.0
 
-  !$OMP parallel do default(private) shared(u,v,h,tv,visc,G,GV,CS,Rml,is,ie,js,je,nz,nkmb,    &
-  !$OMP                                     nkml,Isq,Ieq,Jsq,Jeq,h_neglect,Rho0x400_G,C2pi_3, &
-  !$OMP                                     U_bg_sq,cdrag_sqrt_Z,cdrag_sqrt,K2,use_BBL_EOS,   &
-  !$OMP                                     OBC,maxitt,Vol_quit,D_u,D_v,mask_u,mask_v)
+! !$OMP parallel do default(private) shared(u,v,h,tv,visc,G,GV,CS,Rml,is,ie,js,je,nz,nkmb,    &
+! !$OMP                                     nkml,Isq,Ieq,Jsq,Jeq,h_neglect,Rho0x400_G,C2pi_3, &
+! !$OMP                                     U_bg_sq,cdrag_sqrt_Z,cdrag_sqrt,K2,use_BBL_EOS,   &
+! !$OMP                                     OBC,maxitt,Vol_quit,D_u,D_v,mask_u,mask_v)
   do j=Jsq,Jeq ; do m=1,2
 
     if (m==1) then
@@ -645,6 +645,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
       if (m==1) then ; C2f = (G%CoriolisBu(I,J-1)+G%CoriolisBu(I,J))
       else ; C2f = (G%CoriolisBu(I-1,J)+G%CoriolisBu(I,J)) ; endif
 
+      bbl_thick = 0.0
       if (CS%cdrag * U_bg_sq <= 0.0) then
         ! This avoids NaNs and overflows, and could be used in all cases,
         ! but is not bitwise identical to the current code.
@@ -654,12 +655,12 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS, symmetrize)
         else
           bbl_thick = (htot * ustH) / (0.5*ustH + root)
         endif
-      else
+      elseif (ustar(i) > 1.0e-15) then
         bbl_thick = htot / (0.5 + sqrt(0.25 + htot*htot*C2f*C2f/ &
           ((ustar(i)*ustar(i)) * (GV%Z_to_H**2) )))
 
-        if (bbl_thick < CS%BBL_thick_min) bbl_thick = CS%BBL_thick_min
       endif
+      if (bbl_thick < CS%BBL_thick_min) bbl_thick = CS%BBL_thick_min
 ! If there is Richardson number dependent mixing, that determines
 ! the vertical extent of the bottom boundary layer, and there is no
 ! need to set that scale here.  In fact, viscously reducing the
