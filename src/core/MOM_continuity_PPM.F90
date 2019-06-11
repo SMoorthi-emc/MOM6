@@ -353,9 +353,9 @@ subroutine zonal_mass_flux(u, h_in, uh, dt, G, GV, CS, LB, uhbt, OBC, &
       ! This should be adequate to keep the root bracketed in all cases.
       do I=ish-1,ieh
         I_vrm = 0.0
-        if (visc_rem_max(I) > 0.0) I_vrm = 1.0 / visc_rem_max(I)
+        if (visc_rem_max(I) > 1.0e-10) I_vrm = 1.0 / visc_rem_max(I)
         if (CS%vol_CFL) then
-          dx_W = ratio_max(G%areaT(i,j), G%dy_Cu(I,j), 1000.0*G%dxT(i,j))
+          dx_W = ratio_max(G%areaT(i,j),   G%dy_Cu(I,j), 1000.0*G%dxT(i,j))
           dx_E = ratio_max(G%areaT(i+1,j), G%dy_Cu(I,j), 1000.0*G%dxT(i+1,j))
         else ; dx_W = G%dxT(i,j) ; dx_E = G%dxT(i+1,j) ; endif
         du_max_CFL(I) = 2.0* (CFL_dt * dx_W) * I_vrm
@@ -1821,9 +1821,10 @@ subroutine set_merid_BT_cont(v, h_in, h_L, h_R, BT_cont, vh_tot_0, dvhdv_tot_0, 
     if (FA_avg > max(FA_0, FAmt_L(i))) then ; FA_avg = max(FA_0, FAmt_L(i))
     elseif (FA_avg < min(FA_0, FAmt_L(i))) then ; FA_0 = FA_avg ; endif
     BT_cont%FA_v_S0(i,J) = FA_0 ; BT_cont%FA_v_SS(i,J) = FAmt_L(i)
-    if (abs(FA_0-FAmt_L(i)) <= 1e-12*FA_0) then ; BT_cont%vBT_SS(i,J) = 0.0 ; else
-      BT_cont%vBT_SS(i,J) = (1.5 * (dvL(i) - dv0(i))) * &
-                   ((FAmt_L(i) - FA_avg) / (FAmt_L(i) - FA_0))
+!   if (abs(FA_0-FAmt_L(i)) <= 1e-12*FA_0) then ; BT_cont%vBT_SS(i,J) = 0.0 ; else
+    if (abs(FA_0-FAmt_L(i)) <= 1e-12     ) then ; BT_cont%vBT_SS(i,J) = 0.0 ; else
+      BT_cont%vBT_SS(i,J) = 1.5 * (dvL(i) - dv0(i))  &
+                         * (FAmt_L(i) - FA_avg) / (FAmt_L(i) - FA_0)
     endif
 
     FA_0 = FAmt_0(i) ; FA_avg = FAmt_0(i)
@@ -1832,9 +1833,10 @@ subroutine set_merid_BT_cont(v, h_in, h_L, h_R, BT_cont, vh_tot_0, dvhdv_tot_0, 
     if (FA_avg > max(FA_0, FAmt_R(i))) then ; FA_avg = max(FA_0, FAmt_R(i))
     elseif (FA_avg < min(FA_0, FAmt_R(i))) then ; FA_0 = FA_avg ; endif
     BT_cont%FA_v_N0(i,J) = FA_0 ; BT_cont%FA_v_NN(i,J) = FAmt_R(i)
-    if (abs(FAmt_R(i) - FA_0) <= 1e-12*FA_0) then ; BT_cont%vBT_NN(i,J) = 0.0 ; else
-      BT_cont%vBT_NN(i,J) = (1.5 * (dvR(i) - dv0(i))) * &
-                   ((FAmt_R(i) - FA_avg) / (FAmt_R(i) - FA_0))
+!   if (abs(FAmt_R(i) - FA_0) <= 1e-12*FA_0) then ; BT_cont%vBT_NN(i,J) = 0.0 ; else
+    if (abs(FAmt_R(i) - FA_0) <= 1e-12) then ; BT_cont%vBT_NN(i,J) = 0.0 ; else
+      BT_cont%vBT_NN(i,J) = 1.5 * (dvR(i) - dv0(i))  &
+                          * (FAmt_R(i) - FA_avg) / (FAmt_R(i) - FA_0)
     endif
   else
     BT_cont%FA_v_S0(i,J) = 0.0 ; BT_cont%FA_v_SS(i,J) = 0.0

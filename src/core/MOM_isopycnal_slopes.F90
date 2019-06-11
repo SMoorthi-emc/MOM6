@@ -155,7 +155,8 @@ subroutine calc_isoneutral_slopes(G, GV, h, e, tv, dt_kappa_smooth, &
   !$OMP                          private(drdiA,drdiB,drdkL,drdkR,pres_u,T_u,S_u,      &
   !$OMP                                  drho_dT_u,drho_dS_u,hg2A,hg2B,hg2L,hg2R,haA, &
   !$OMP                                  haB,haL,haR,dzaL,dzaR,wtA,wtB,wtL,wtR,drdz,  &
-  !$OMP                                  drdx,mag_grad2,Slope,slope2_Ratio)
+  !$OMP                                  drdx,mag_grad2)
+! !$OMP                                  drdx,mag_grad2,Slope,slope2_Ratio)
   do j=js,je ; do K=nz,2,-1
     if (.not.(use_EOS)) then
       drdiA = 0.0 ; drdiB = 0.0
@@ -220,7 +221,7 @@ subroutine calc_isoneutral_slopes(G, GV, h, e, tv, dt_kappa_smooth, &
         ! This estimate of slope is accurate for small slopes, but bounded
         ! to be between -1 and 1.
         mag_grad2 = drdx**2 + (L_to_Z*drdz)**2
-        if (mag_grad2 > 0.0) then
+        if (mag_grad2 > 1.0e-10) then
           slope_x(I,j,K) = drdx / sqrt(mag_grad2)
         else ! Just in case mag_grad2 = 0 ever.
           slope_x(I,j,K) = 0.0
@@ -242,7 +243,8 @@ subroutine calc_isoneutral_slopes(G, GV, h, e, tv, dt_kappa_smooth, &
   !$OMP                          private(drdjA,drdjB,drdkL,drdkR,pres_v,T_v,S_v,      &
   !$OMP                                  drho_dT_v,drho_dS_v,hg2A,hg2B,hg2L,hg2R,haA, &
   !$OMP                                  haB,haL,haR,dzaL,dzaR,wtA,wtB,wtL,wtR,drdz,  &
-  !$OMP                                  drdy,mag_grad2,Slope,slope2_Ratio)
+  !$OMP                                  drdy,mag_grad2)
+! !$OMP                                  drdy,mag_grad2,Slope,slope2_Ratio)
   do j=js-1,je ; do K=nz,2,-1
     if (.not.(use_EOS)) then
       drdjA = 0.0 ; drdjB = 0.0
@@ -304,7 +306,7 @@ subroutine calc_isoneutral_slopes(G, GV, h, e, tv, dt_kappa_smooth, &
         ! This estimate of slope is accurate for small slopes, but bounded
         ! to be between -1 and 1.
         mag_grad2 = drdy**2 + (L_to_Z*drdz)**2
-        if (mag_grad2 > 0.0) then
+        if (mag_grad2 > 1.0e-10) then
           slope_y(i,J,K) = drdy / sqrt(mag_grad2)
         else ! Just in case mag_grad2 = 0 ever.
           slope_y(i,J,K) = 0.0

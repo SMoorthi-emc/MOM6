@@ -2029,6 +2029,7 @@ subroutine set_derived_forcing_fields(forces, fluxes, G, Rho0)
 
   real :: taux2, tauy2 ! Squared wind stress components, in Pa^2.
   real :: Irho0        ! Inverse of the mean density in (m^3/kg)
+  real :: tem
   integer :: i, j, is, ie, js, je
   is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec
 
@@ -2038,19 +2039,23 @@ subroutine set_derived_forcing_fields(forces, fluxes, G, Rho0)
       associated(fluxes%ustar_gustless)) then
     do j=js,je ; do i=is,ie
       taux2 = 0.0
-      if ((G%mask2dCu(I-1,j) + G%mask2dCu(I,j)) > 0) &
-        taux2 = (G%mask2dCu(I-1,j) * forces%taux(I-1,j)**2 + &
-                 G%mask2dCu(I,j) * forces%taux(I,j)**2) / &
-                (G%mask2dCu(I-1,j) + G%mask2dCu(I,j))
+      tem   = G%mask2dCu(I-1,j) + G%mask2dCu(I,j)
+      if (tem > 1.0e-6)                                     &
+!     write(0,*)' mask2dCu=',G%mask2dCu(I-1,j), G%mask2dCu(I,j), &
+!    ' forces%taux=',forces%taux(I-1,j), forces%taux(I,j)
+        taux2 = (G%mask2dCu(I-1,j) * forces%taux(I-1,j)**2  &
+              +  G%mask2dCu(I,j)   * forces%taux(I,j)**2) / tem
       tauy2 = 0.0
-      if ((G%mask2dCv(i,J-1) + G%mask2dCv(i,J)) > 0) &
-        tauy2 = (G%mask2dCv(i,J-1) * forces%tauy(i,J-1)**2 + &
-                 G%mask2dCv(i,J) * forces%tauy(i,J)**2) / &
-                (G%mask2dCv(i,J-1) + G%mask2dCv(i,J))
+!     write(0,*)' mask2dCv=',G%mask2dCv(I,j-1), G%mask2dCv(I,j), &
+!    ' forces%tauy=',forces%tauy(I,j-1), forces%tauy(I,j)
+      tem   = G%mask2dCv(i,J-1) + G%mask2dCv(i,J)
+      if (tem > 1.0e-6)                                     &
+        tauy2 = (G%mask2dCv(i,J-1) * forces%tauy(i,J-1)**2  &
+              +  G%mask2dCv(i,J)   * forces%tauy(i,J)**2) / tem
 
-      fluxes%ustar_gustless(i,j) = sqrt(sqrt(taux2 + tauy2) / Rho0)
+!     fluxes%ustar_gustless(i,j) = sqrt(sqrt(taux2 + tauy2) / rho0)
 !### Change to:
-!      fluxes%ustar_gustless(i,j) = sqrt(sqrt(taux2 + tauy2) * Irho0)
+      fluxes%ustar_gustless(i,j) = sqrt(sqrt(taux2 + tauy2) * Irho0)
     enddo ; enddo
   endif
 

@@ -247,7 +247,8 @@ subroutine step_forward_MEKE(MEKE, h, SN_u, SN_v, visc, dt, G, GV, CS, hu, hv)
       enddo ; enddo
       do i=is-1,ie+1
         I_mass(i,j) = 0.0
-        if (mass(i,j) > 0.0) I_mass(i,j) = 1.0 / mass(i,j)
+        if (mass(i,j) > 1.0e-12) I_mass(i,j) = 1.0 / mass(i,j)
+!       if (mass(i,j) > 0.0) I_mass(i,j) = 1.0 / mass(i,j)
       enddo
     enddo
 !$OMP end parallel
