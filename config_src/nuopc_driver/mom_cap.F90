@@ -204,6 +204,8 @@
 !! --------------------------|------------|-----------------|---------------------------------------|-------------------
 !! inst_pres_height_surface  | Pa         | p               | pressure of overlying sea ice and atmosphere
 !! mass_of_overlying_sea_ice | kg         | mi              | mass of overlying sea ice          | |
+!! seaice_melt_heat          | W m-2      | seaice_melt_heat| sea ice and snow melt heat flux    | |
+!! seaice_melt               | kg m-2 s-1 | seaice_melt     | water flux due to sea ice and snow melting    | |
 !! mean_calving_heat_flx     | W m-2      | calving_hflx    | heat flux, relative to 0C, of frozen land water into ocean
 !! mean_calving_rate         | kg m-2 s-1 | calving         | mass flux of frozen runoff         | |
 !! mean_evap_rate            | kg m-2 s-1 | q_flux          | specific humidity flux             |
@@ -377,6 +379,7 @@ use ESMF,  only: ESMF_FieldCreate, ESMF_LOGMSG_ERROR, ESMF_LOGMSG_WARNING
 use ESMF,  only: ESMF_COORDSYS_SPH_DEG, ESMF_GridCreate, ESMF_INDEX_DELOCAL
 use ESMF,  only: ESMF_MESHLOC_ELEMENT, ESMF_RC_VAL_OUTOFRANGE, ESMF_StateGet
 use ESMF,  only: ESMF_TimePrint, ESMF_AlarmSet, ESMF_FieldGet
+use ESMF,  only: operator(==), operator(/=), operator(+), operator(-)
 
 ! TODO ESMF_GridCompGetInternalState does not have an explicit Fortran interface.
 !! Model does not compile with "use ESMF,  only: ESMF_GridCompGetInternalState"
@@ -753,6 +756,7 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
   integer                                :: userRc
   character(len=512)                     :: restartfile          ! Path/Name of restart file
   character(len=*), parameter            :: subname='(mom_cap:InitializeAdvertise)'
+  character(len=32)                      :: calendar
 !--------------------------------
 
   rc = ESMF_SUCCESS
@@ -804,7 +808,35 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
   call fms_init(mpi_comm_mom)
   call constants_init
   call field_manager_init
-  call set_calendar_type (JULIAN)
+
+  ! determine the calendar
+  if (cesm_coupled) then
+     call NUOPC_CompAttributeGet(gcomp, name="calendar", value=cvalue, &
+          isPresent=isPresent, isSet=isSet, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+     if (isPresent .and. isSet) then
+        read(cvalue,*) calendar
+        select case (trim(calendar))
+           case ("NO_LEAP")
+              call set_calendar_type (NOLEAP)
+           case ("GREGORIAN")
+              call set_calendar_type (GREGORIAN)
+           case default
+              call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+                 msg=subname//": Calendar not supported in MOM6: "//trim(calendar), &
+                 line=__LINE__, file=__FILE__, rcToReturn=rc)
+           end select
+     else
+        call set_calendar_type (NOLEAP)
+     endif
+
+  else
+     call set_calendar_type (JULIAN)
+  endif
+
   call diag_manager_init
 
   ! this ocean connector will be driven at set interval
@@ -960,6 +992,8 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
              Ice_ocean_boundary% sw_flux_nir_dif (isc:iec,jsc:jec), &
              Ice_ocean_boundary% lprec (isc:iec,jsc:jec),           &
              Ice_ocean_boundary% fprec (isc:iec,jsc:jec),           &
+             Ice_ocean_boundary% seaice_melt_heat (isc:iec,jsc:jec),&
+             Ice_ocean_boundary% seaice_melt (isc:iec,jsc:jec),     &
              Ice_ocean_boundary% mi (isc:iec,jsc:jec),              &
              Ice_ocean_boundary% p (isc:iec,jsc:jec),               &
              Ice_ocean_boundary% runoff (isc:iec,jsc:jec),          &
@@ -981,6 +1015,8 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
   Ice_ocean_boundary%sw_flux_nir_dif = 0.0
   Ice_ocean_boundary%lprec           = 0.0
   Ice_ocean_boundary%fprec           = 0.0
+  Ice_ocean_boundary%seaice_melt     = 0.0
+  Ice_ocean_boundary%seaice_melt_heat= 0.0
   Ice_ocean_boundary%mi              = 0.0
   Ice_ocean_boundary%p               = 0.0
   Ice_ocean_boundary%runoff          = 0.0
@@ -1030,8 +1066,8 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
   call fld_list_add(fldsToOcn_num, fldsToOcn, "inst_pres_height_surface"   , "will provide")
   call fld_list_add(fldsToOcn_num, fldsToOcn, "Foxx_rofl"                  , "will provide") !-> liquid runoff
   call fld_list_add(fldsToOcn_num, fldsToOcn, "Foxx_rofi"                  , "will provide") !-> ice runoff
-  !call fld_list_add(fldsToOcn_num, fldsToOcn, "seaice_melt_water"          , "will provide")
-  !call fld_list_add(fldsToOcn_num, fldsToOcn, "seaice_melt_heat"           , "will provide")
+  call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_fresh_water_to_ocean_rate", "will provide")
+  call fld_list_add(fldsToOcn_num, fldsToOcn, "net_heat_flx_to_ocn"        , "will provide")
 
  !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_runoff_rate"           , "will provide")
  !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_calving_rate"          , "will provide")
@@ -1728,6 +1764,7 @@ subroutine ModelAdvance(gcomp, rc)
   ! local variables
   integer                                :: userRc
   logical                                :: existflag, isPresent, isSet
+  logical                                :: do_advance = .true.
   type(ESMF_Clock)                       :: clock!< ESMF Clock class definition
   type(ESMF_Alarm)                       :: alarm
   type(ESMF_State)                       :: importState, exportState
@@ -1766,16 +1803,6 @@ subroutine ModelAdvance(gcomp, rc)
     file=__FILE__)) &
     return  ! bail out
 
-  call ESMF_GridCompGetInternalState(gcomp, ocean_internalstate, rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    line=__LINE__, &
-    file=__FILE__)) &
-    return  ! bail out
-
-  Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
-  ocean_public       => ocean_internalstate%ptr%ocean_public_type_ptr
-  ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
-
   ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
 
   call ESMF_ClockPrint(clock, options="currTime", &
@@ -1798,8 +1825,7 @@ subroutine ModelAdvance(gcomp, rc)
     return  ! bail out
 
   call ESMF_TimePrint(currTime + timeStep, &
-    preString="--------------------------------> to: ", &
-    unit=msgString, rc=rc)
+    preString="--------------------------------> to: ", unit=msgString, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     line=__LINE__, &
     file=__FILE__)) &
@@ -1810,64 +1836,111 @@ subroutine ModelAdvance(gcomp, rc)
     file=__FILE__)) &
     return  ! bail out
 
-  Time = esmf2fms_time(currTime)
   Time_step_coupled = esmf2fms_time(timeStep)
+  Time = esmf2fms_time(currTime)
 
   !---------------
-  ! Write diagnostics for import
+  ! Apply ocean lag for startup runs:
   !---------------
-
-  if(write_diagnostics) then
-    call NUOPC_Write(importState, fileNamePrefix='field_ocn_import_', &
-      timeslice=import_slice, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    import_slice = import_slice + 1
-  endif
-
-  !---------------
-  ! Get ocean grid
-  !---------------
-
-  call get_ocean_grid(ocean_state, ocean_grid)
-
-  !---------------
-  ! Import data
-  !---------------
-
-  call shr_file_setLogUnit (logunit)
 
   if (cesm_coupled) then
-     call mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary, runtype=runtype, rc=rc)
-  else
-     call mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary, rc=rc)
+    if (trim(runtype) == "initial") then
+
+      ! Do not call MOM6 timestepping routine if the first cpl tstep of a startup run
+      if (currTime == startTime) then
+        call ESMF_LogWrite("MOM6 - Skipping the first coupling timestep", ESMF_LOGMSG_INFO, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        do_advance = .false.
+      else
+        do_advance = .true.
+      endif
+
+      if (do_advance) then
+         ! If the second cpl tstep of a startup run, step back a cpl tstep and advance for two cpl tsteps
+         if (currTime == startTime + timeStep) then
+            call ESMF_LogWrite("MOM6 - Stepping back one coupling timestep", ESMF_LOGMSG_INFO, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                 line=__LINE__, &
+                 file=__FILE__)) &
+                 return  ! bail out
+            Time = esmf2fms_time(currTime-timeStep) ! i.e., startTime
+
+            call ESMF_LogWrite("MOM6 - doubling the coupling timestep", ESMF_LOGMSG_INFO, rc=rc)
+            if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+                 line=__LINE__, &
+                 file=__FILE__)) &
+                 return  ! bail out
+            Time_step_coupled = 2 * esmf2fms_time(timeStep)
+         endif
+      end if
+
+    endif
   endif
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-       line=__LINE__, &
-       file=__FILE__)) &
-       return  ! bail out
 
-  !---------------
-  ! Update MOM6
-  !---------------
+  if (do_advance) then
 
-  if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM update_ocean_model: ")
-  call update_ocean_model(Ice_ocean_boundary, ocean_state, ocean_public, Time, Time_step_coupled)
-  if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM update_ocean_model: ")
+     call ESMF_GridCompGetInternalState(gcomp, ocean_internalstate, rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
 
-  !---------------
-  ! Export Data
-  !---------------
+     Ice_ocean_boundary => ocean_internalstate%ptr%ice_ocean_boundary_type_ptr
+     ocean_public       => ocean_internalstate%ptr%ocean_public_type_ptr
+     ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
 
-  call mom_export(ocean_public, ocean_grid, ocean_state, exportState, clock, rc=rc)
-  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-       line=__LINE__, &
-       file=__FILE__)) &
-       return  ! bail out
+     !---------------
+     ! Write diagnostics for import
+     !---------------
 
-  call shr_file_setLogUnit (logunit)
+     if (write_diagnostics) then
+        call NUOPC_Write(importState, fileNamePrefix='field_ocn_import_', &
+             timeslice=import_slice, relaxedFlag=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+             line=__LINE__, &
+             file=__FILE__)) &
+             return  ! bail out
+        import_slice = import_slice + 1
+     endif
+
+     !---------------
+     ! Get ocean grid
+     !---------------
+
+     call get_ocean_grid(ocean_state, ocean_grid)
+
+     !---------------
+     ! Import data
+     !---------------
+
+     call mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+     !---------------
+     ! Update MOM6
+     !---------------
+
+     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM update_ocean_model: ")
+     call update_ocean_model(Ice_ocean_boundary, ocean_state, ocean_public, Time, Time_step_coupled)
+     if(profile_memory) call ESMF_VMLogMemInfo("Leaving MOM update_ocean_model: ")
+
+     !---------------
+     ! Export Data
+     !---------------
+
+     call mom_export(ocean_public, ocean_grid, ocean_state, exportState, clock, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+
+  endif
 
   !---------------
   ! If restart alarm is ringing - write restart file
