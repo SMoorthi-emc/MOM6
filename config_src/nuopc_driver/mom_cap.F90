@@ -778,18 +778,32 @@ contains
 
     ! reset shr logging to my log file
     if (is_root_pe()) then
-       call NUOPC_CompAttributeGet(gcomp, name="diro", value=diro, &
-            isPresent=isPresentDiro, rc=rc)
+      call NUOPC_CompAttributeGet(gcomp, name="diro", isPresent=isPresentDiro, rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return
-       call NUOPC_CompAttributeGet(gcomp, name="logfile", value=logfile, &
-            isPresent=isPresentLogfile, rc=rc)
+       if (isPresentDiro) then
+         call NUOPC_CompAttributeGet(gcomp, name="diro", value=diro, rc=rc)
+         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return
+       end if
+
+       call NUOPC_CompAttributeGet(gcomp, name="logfile", isPresent=isPresentLogfile, rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return
+       if (isPresentLogfile) then
+         call NUOPC_CompAttributeGet(gcomp, name="logfile", value=logfile, rc=rc)
+         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+              line=__LINE__, &
+              file=__FILE__)) &
+              return
+       end if
+
        if (isPresentDiro .and. isPresentLogfile) then
           open(newunit=logunit,file=trim(diro)//"/"//trim(logfile))
        else
@@ -948,6 +962,10 @@ contains
       file=__FILE__)) &
       return  ! bail out
 
+#ifdef CMEPS
+    call fld_list_add(fldsToOcn_num, fldsToOcn, trim(scalar_field_name), "will_provide")
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, trim(scalar_field_name), "will_provide")
+#else
     if (cesm_coupled) then
        if (len_trim(scalar_field_name) > 0) then
           call fld_list_add(fldsToOcn_num, fldsToOcn, trim(scalar_field_name), "will_provide")
@@ -964,6 +982,7 @@ contains
       !call fld_list_add(fldsToOcn_num, fldsToOcn, "mass_of_overlying_sea_ice" , "will provide")
       !call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"                   , "will provide")
     end if
+#endif
 
     !--------- import fields -------------
     call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_salt_rate"             , "will provide") ! from ice
