@@ -1662,8 +1662,13 @@ contains
     end if
 
     if(write_diagnostics) then
+#ifdef CMEPS
+      call NUOPC_Write(exportState, fileNamePrefix='field_init_ocn_export_', &
+        overwrite=.true., timeslice=import_slice, relaxedFlag=.true., rc=rc)
+#else
       call NUOPC_Write(exportState, fileNamePrefix='field_init_ocn_export_', &
         timeslice=import_slice, relaxedFlag=.true., rc=rc)
+#endif
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
