@@ -1781,12 +1781,21 @@ contains
     !---------------
 
     if(write_diagnostics) then
+#ifdef CMEPS
+      call NUOPC_Write(importState, fileNamePrefix='field_ocn_import_', &
+        timeslice=import_slice, relaxedFlag=.true., overwrite=.true., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+#else
       call NUOPC_Write(importState, fileNamePrefix='field_ocn_import_', &
         timeslice=import_slice, relaxedFlag=.true., rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+#endif
       import_slice = import_slice + 1
     endif
 
@@ -1942,12 +1951,21 @@ contains
     !---------------
 
     if (write_diagnostics) then
+#ifdef CMEPS
+       call NUOPC_Write(exportState, fileNamePrefix='field_ocn_export_', &
+            timeslice=export_slice, relaxedFlag=.true., overwrite=.true., rc=rc)
+       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+            line=__LINE__, &
+            file=__FILE__)) &
+            return  ! bail out
+#else
        call NUOPC_Write(exportState, fileNamePrefix='field_ocn_export_', &
             timeslice=export_slice, relaxedFlag=.true., rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
+#endif
        export_slice = export_slice + 1
     endif
 
