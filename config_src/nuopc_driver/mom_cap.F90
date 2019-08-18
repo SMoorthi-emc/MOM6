@@ -977,7 +977,10 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
      call ocean_model_init(ocean_public, ocean_state, Time, Time)
   endif
 
-  call data_override_init(Ocean_domain_in = Ocean_public%domain) ! for runoff
+#ifndef CESMCOUPLED
+! for runoff in EMC 
+  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
+#endif
 
   call ocean_model_init_sfc(ocean_state, ocean_public)
 
@@ -2535,9 +2538,8 @@ subroutine shr_file_getLogUnit(nunit)
 end subroutine shr_file_getLogUnit
 #endif
 
-! get forcing data from data_overide
   subroutine ice_ocn_bnd_from_data(x, Time, Time_step_coupled)
-
+! get forcing data from data_overide
       type (ice_ocean_boundary_type) :: x
       type(Time_type), intent(in)    :: Time, Time_step_coupled
 
@@ -2546,7 +2548,7 @@ end subroutine shr_file_getLogUnit
 
       Time_next = Time + Time_step_coupled
 !      call data_override('OCN', 'runoff',  x%runoff  , Time_next)
-      call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next)  !JW
+      call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next) 
 
   end subroutine ice_ocn_bnd_from_data
 
