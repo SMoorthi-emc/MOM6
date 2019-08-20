@@ -979,7 +979,7 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
 
 #ifndef CESMCOUPLED
 ! for runoff in EMC 
-  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
+!  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
 #endif
 
   call ocean_model_init_sfc(ocean_state, ocean_public)
@@ -1931,7 +1931,7 @@ subroutine ModelAdvance(gcomp, rc)
        file=__FILE__)) &
        return  ! bail out
 
-  call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled) ! for runoff            
+  !call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled) ! for runoff            
 
   !---------------
   ! Update MOM6
