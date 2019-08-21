@@ -300,6 +300,23 @@ subroutine MOM_wave_interface_init(time, G, GV, US, param_file, CS, diag )
            "Filename of surface Stokes drift input band data.", default="StkSpec.nc")
     case (COUPLER_STRING)! Reserved for coupling
       DataSource = Coupler
+
+  ! added by EMC for WW3
+    !call get_param(param_file,mdl,"SURFBAND_NB",NumBands,                 &
+    !   "Prescribe number of wavenumber bands for Stokes drift. \n"//      &
+    !   " Make sure this is consistnet w/ WAVENUMBERS, STOKES_X, and \n"// &
+    !   " STOKES_Y, there are no safety checks in the code.",              &
+    !   units='', default=1)
+    NumBands = 3 !hardcoding this for now
+    allocate( CS%WaveNum_Cen(1:NumBands) ) ; CS%WaveNum_Cen(:)=0.0
+    allocate( CS%STKx0(G%isdB:G%iedB,G%jsd:G%jed,1:NumBands)) ; CS%STKx0(:,:,:) = 0.0      
+    allocate( CS%STKy0(G%isd:G%ied,G%jsdB:G%jedB,1:NumBands)) ; CS%STKy0(:,:,:) = 0.0
+    partitionmode=0
+    call get_param(param_file,mdl,"SURFBAND_WAVENUMBERS",CS%WaveNum_Cen,      &
+         "Central wavenumbers for surface Stokes drift bands.",units='rad/m', &
+         default=0.12566)
+  ! end of EMC for WW3
+
     case (INPUT_STRING)! A method to input the Stokes band (globally uniform)
       DataSource = Input
       call get_param(param_file,mdl,"SURFBAND_NB",NumBands,                 &
@@ -406,8 +423,14 @@ end subroutine MOM_wave_interface_init
 
 !> A 'lite' init subroutine to initialize a few inputs needed if using wave information
 !! with the wind-speed dependent Stokes drift formulation of LF17
-subroutine MOM_wave_interface_init_lite(param_file)
+subroutine MOM_wave_interface_init_lite(param_file, CS)
+  !It is possible to estimate Stokes drift without the Wave data (if WaveMethod=LF17).            
+  ! In this case there are still a couple inputs we need to read in, which is done     
+  ! here in a reduced wave_interface_init that doesn't allocate the CS.
+
+  !Arguments
   type(param_file_type), intent(in) :: param_file !< Input parameter structure
+  type(wave_parameters_CS), pointer      :: CS    !< Wave parameter control structure            
   character*(5), parameter  :: NULL_STRING      = "EMPTY"
   character*(4), parameter  :: LF17_STRING      = "LF17"
   character*(13) :: TMPSTRING1
@@ -428,6 +451,12 @@ subroutine MOM_wave_interface_init_lite(param_file)
   else
     WaveMethod = NULL_WaveMethod
   end if
+
+  !/ Allocate CS and set pointers
+  allocate(CS)
+
+  ! The only way to get here is with UseWaves enabled.
+  CS%UseWaves=.false.
 
   return
 end subroutine MOM_wave_interface_init_lite
