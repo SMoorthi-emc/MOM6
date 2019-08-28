@@ -350,11 +350,11 @@ module mom_cap_mod
 
   use ESMF
   use NUOPC
-  use NUOPC_Model, &
-    model_routine_SS           => SetServices, &
-    model_label_Advance        => label_Advance, &
+  use NUOPC_Model,                                      &
+    model_routine_SS           => SetServices,          &
+    model_label_Advance        => label_Advance,        &
     model_label_DataInitialize => label_DataInitialize, &
-    model_label_SetRunClock    => label_SetRunClock, &
+    model_label_SetRunClock    => label_SetRunClock,    &
     model_label_Finalize       => label_Finalize
 
   implicit none
@@ -626,7 +626,7 @@ contains
     integer                                :: isc,iec,jsc,jec
     integer                                :: year=0, month=0, day=0, hour=0, minute=0, second=0
     integer                                :: mpi_comm_mom
-    integer                                :: i,n
+    integer                                :: i,j,n
     character(len=256)                     :: stdname, shortname
     character(len=32)                      :: starttype            ! model start type
     character(len=512)                     :: diro
@@ -795,26 +795,31 @@ contains
                Ice_ocean_boundary% rofl_flux (isc:iec,jsc:jec),       &
                Ice_ocean_boundary% rofi_flux (isc:iec,jsc:jec))
 
-    Ice_ocean_boundary%u_flux          = 0.0
-    Ice_ocean_boundary%v_flux          = 0.0
-    Ice_ocean_boundary%t_flux          = 0.0
-    Ice_ocean_boundary%q_flux          = 0.0
-    Ice_ocean_boundary%salt_flux       = 0.0
-    Ice_ocean_boundary%lw_flux         = 0.0
-    Ice_ocean_boundary%sw_flux_vis_dir = 0.0
-    Ice_ocean_boundary%sw_flux_vis_dif = 0.0
-    Ice_ocean_boundary%sw_flux_nir_dir = 0.0
-    Ice_ocean_boundary%sw_flux_nir_dif = 0.0
-    Ice_ocean_boundary%lprec           = 0.0
-    Ice_ocean_boundary%fprec           = 0.0
-    Ice_ocean_boundary%mi              = 0.0
-    Ice_ocean_boundary%p               = 0.0
-    Ice_ocean_boundary%runoff          = 0.0
-    Ice_ocean_boundary%calving         = 0.0
-    Ice_ocean_boundary%runoff_hflx     = 0.0
-    Ice_ocean_boundary%calving_hflx    = 0.0
-    Ice_ocean_boundary%rofl_flux       = 0.0
-    Ice_ocean_boundary%rofi_flux       = 0.0
+!$omp parallel do default(shared) private(i,j)
+  do j=jsc,jec
+    do i=isc,iec
+      Ice_ocean_boundary%u_flux(i,j)          = 0.0
+      Ice_ocean_boundary%v_flux(i,j)          = 0.0
+      Ice_ocean_boundary%t_flux(i,j)          = 0.0
+      Ice_ocean_boundary%q_flux(i,j)          = 0.0
+      Ice_ocean_boundary%salt_flux(i,j)       = 0.0
+      Ice_ocean_boundary%lw_flux(i,j)         = 0.0
+      Ice_ocean_boundary%sw_flux_vis_dir(i,j) = 0.0
+      Ice_ocean_boundary%sw_flux_vis_dif(i,j) = 0.0
+      Ice_ocean_boundary%sw_flux_nir_dir(i,j) = 0.0
+      Ice_ocean_boundary%sw_flux_nir_dif(i,j) = 0.0
+      Ice_ocean_boundary%lprec(i,j)           = 0.0
+      Ice_ocean_boundary%fprec(i,j)           = 0.0
+      Ice_ocean_boundary%mi(i,j)              = 0.0
+      Ice_ocean_boundary%p(i,j)               = 0.0
+      Ice_ocean_boundary%runoff(i,j)          = 0.0
+      Ice_ocean_boundary%calving(i,j)         = 0.0
+      Ice_ocean_boundary%runoff_hflx(i,j)     = 0.0
+      Ice_ocean_boundary%calving_hflx(i,j)    = 0.0
+      Ice_ocean_boundary%rofl_flux(i,j)       = 0.0
+      Ice_ocean_boundary%rofi_flux(i,j)       = 0.0
+    enddo
+  enddo
 
     ocean_internalstate%ptr%ocean_state_type_ptr => ocean_state
     call ESMF_GridCompSetInternalState(gcomp, ocean_internalstate, rc)
