@@ -1614,13 +1614,13 @@ contains
     ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
     call get_ocean_grid(ocean_state, ocean_grid)
 
-    if (cesm_coupled) then
+    !if (cesm_coupled) then
        call mom_export(ocean_public, ocean_grid, ocean_state, exportState, clock, rc=rc)
        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
             line=__LINE__, &
             file=__FILE__)) &
             return  ! bail out
-    end if
+    !end if
 
     call ESMF_StateGet(exportState, itemCount=fieldCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
