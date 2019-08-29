@@ -348,6 +348,8 @@ use MOM_ocean_model,          only: ocean_model_init_sfc
 use MOM_ocean_model,          only: ocean_model_init, update_ocean_model, ocean_model_end, get_ocean_grid
 use mom_cap_time,             only: AlarmInit
 use mom_cap_methods,          only: mom_import, mom_export, mom_set_geomtype
+use MOM_wave_interface,       only: wave_parameters_CS, MOM_wave_interface_init !JW    
+use MOM_wave_interface,       only: MOM_wave_interface_init_lite, Update_Surface_Waves  !JW                
 #ifdef CESMCOUPLED
 use shr_file_mod,             only: shr_file_setLogUnit, shr_file_getLogUnit
 #endif
@@ -723,6 +725,7 @@ end subroutine
 !! @param clock an ESMF_Clock object
 !! @param rc return code
 subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
+  USE MOM_wave_interface, only: NumBands  !JW
   type(ESMF_GridComp)            :: gcomp                    !< ESMF_GridComp object
   type(ESMF_State)               :: importState, exportState !< ESMF_State object for
                                                              !! import/export fields
@@ -1074,6 +1077,19 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
   call fld_list_add(fldsToOcn_num, fldsToOcn, "Foxx_rofi"                  , "will provide") !-> ice runoff
   call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_fresh_water_to_ocean_rate", "will provide")
   call fld_list_add(fldsToOcn_num, fldsToOcn, "net_heat_flx_to_ocn"        , "will provide")
+
+! add waves:
+!JW  if (Ocean_state%Use_Waves) then
+    if (NumBands.ne.3) then
+       write(*,*) 'WARNING: NumBands is hardcoded to 3, if not 3 abort!'
+    endif
+    call fld_list_add(fldsToOcn_num, fldsToOcn,"eastward_partitioned_stokes_drift_1", "will provide") 
+    call fld_list_add(fldsToOcn_num, fldsToOcn,"northward_partitioned_stokes_drift_1", "will provide")                   
+    call fld_list_add(fldsToOcn_num, fldsToOcn,"eastward_partitioned_stokes_drift_2", "will provide")
+    call fld_list_add(fldsToOcn_num, fldsToOcn,"northward_partitioned_stokes_drift_2", "will provide")                          
+    call fld_list_add(fldsToOcn_num, fldsToOcn,"eastward_partitioned_stokes_drift_3", "will provide")                      
+    call fld_list_add(fldsToOcn_num, fldsToOcn,"northward_partitioned_stokes_drift_3", "will provide")
+!JW  endif !UseWaves
 
  !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_runoff_rate"           , "will provide")
  !call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_calving_rate"          , "will provide")

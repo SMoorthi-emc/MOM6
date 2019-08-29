@@ -57,11 +57,14 @@ end subroutine mom_set_geomtype
 !> This function has a few purposes:
 !! (1) it imports surface fluxes using data from the mediator; and
 !! (2) it can apply restoring in SST and SSS.
-subroutine mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary, runtype, rc)
+! JW subroutine mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary, runtype, rc)                
+subroutine mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary, Ocean_State, runtype, rc) !JW
   type(ocean_public_type)       , intent(in)    :: ocean_public       !< Ocean surface state
   type(ocean_grid_type)         , intent(in)    :: ocean_grid         !< Ocean model grid
   type(ESMF_State)              , intent(inout) :: importState        !< incoming data from mediator
   type(ice_ocean_boundary_type) , intent(inout) :: ice_ocean_boundary !< Ocean boundary forcing
+  type(Ocean_State_type), optional, intent(in)    :: ocean_state      !JW
+!JW  type(Ocean_State_type), optional, pointer :: ocean_state      !JW 
   character(len=*), optional    , intent(in)    :: runtype            !< For cesm only, type of run
   integer                       , intent(inout) :: rc                 !< Return code
 
@@ -72,6 +75,10 @@ subroutine mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary,
   character(len=128)              :: fldname
   real(ESMF_KIND_R8), allocatable :: taux(:,:)
   real(ESMF_KIND_R8), allocatable :: tauy(:,:)
+  real(ESMF_KIND_R8), allocatable :: stkx1(:,:),stky1(:,:)
+  real(ESMF_KIND_R8), allocatable :: stkx2(:,:),stky2(:,:)
+  real(ESMF_KIND_R8), allocatable :: stkx3(:,:),stky3(:,:)
+
   character(len=*)  , parameter   :: subname = '(mom_import)'
 
   rc = ESMF_SUCCESS
@@ -337,6 +344,88 @@ subroutine mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary,
          line=__LINE__, &
          file=__FILE__)) &
          return  ! bail out
+
+     allocate (stkx1(isc:iec,jsc:jec))
+     allocate (stky1(isc:iec,jsc:jec))
+     allocate (stkx2(isc:iec,jsc:jec))
+     allocate (stky2(isc:iec,jsc:jec))
+     allocate (stkx3(isc:iec,jsc:jec))
+     allocate (stky3(isc:iec,jsc:jec))
+     
+     call state_getimport(importState, 'eastward_partitioned_stokes_drift_1',  &
+          isc, iec, jsc, jec, stkx1, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+     
+     call state_getimport(importState, 'northward_partitioned_stokes_drift_1',  &
+          isc, iec, jsc, jec, stky1, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+
+     call state_getimport(importState, 'eastward_partitioned_stokes_drift_2',  &
+          isc, iec, jsc, jec, stkx2, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+
+     call state_getimport(importState, 'northward_partitioned_stokes_drift_2', &
+          isc, iec, jsc, jec, stky2, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+
+     call state_getimport(importState, 'eastward_partitioned_stokes_drift_3',  &
+          isc, iec, jsc, jec, stkx3, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+
+     call state_getimport(importState, 'northward_partitioned_stokes_drift_3', &
+          isc, iec, jsc, jec, stky3, rc=rc)
+     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+         line=__LINE__, &
+         file=__FILE__)) &
+         return  ! bail out
+
+     ! rotate stkx and stky from true zonal/meridional to local coordinates
+     do j = jsc, jec
+        jg = j + ocean_grid%jsc - jsc
+        do i = isc, iec
+           ig = i + ocean_grid%isc - isc
+           stkx1(i,j) = ocean_grid%cos_rot(ig,jg)*stkx1(i,j) & 
+                        - ocean_grid%sin_rot(ig,jg)*stky1(i,j)
+           stkx1(i,j) = ocean_grid%cos_rot(ig,jg)*stkx1(i,j) & 
+                        + ocean_grid%sin_rot(ig,jg)*stkx1(i,j)  
+           stkx2(i,j) = ocean_grid%cos_rot(ig,jg)*stkx2(i,j) & 
+                        - ocean_grid%sin_rot(ig,jg)*stky2(i,j)
+           stkx2(i,j) = ocean_grid%cos_rot(ig,jg)*stkx2(i,j) & 
+                        + ocean_grid%sin_rot(ig,jg)*stkx2(i,j)
+           stkx3(i,j) = ocean_grid%cos_rot(ig,jg)*stkx3(i,j) &  
+                        - ocean_grid%sin_rot(ig,jg)*stky3(i,j) 
+           stkx3(i,j) = ocean_grid%cos_rot(ig,jg)*stkx3(i,j) &
+                        + ocean_grid%sin_rot(ig,jg)*stkx3(i,j)
+
+!          ocean_state%Waves%STKx0(i-1+ocean_state%grid%iscb,j-1+ocean_state%grid%jscb,1) = stkx1(i,j)
+!          ocean_state%Waves%STKy0(i-1+ocean_state%grid%iscb,j-1+ocean_state%grid%jscb,1) = stky1(i,j)             
+!          ocean_state%Waves%STKx0(i-1+ocean_state%grid%iscb,j-1+ocean_state%grid%jscb,2) = stkx2(i,j)             
+!          ocean_state%Waves%STKy0(i-1+ocean_state%grid%iscb,j-1+ocean_state%grid%jscb,2) = stky2(i,j)              
+!          ocean_state%Waves%STKx0(i-1+ocean_state%grid%iscb,j-1+ocean_state%grid%jscb,3) = stkx3(i,j)             
+!          ocean_state%Waves%STKy0(i-1+ocean_state%grid%iscb,j-1+ocean_state%grid%jscb,3) = stky3(i,j)            
+
+        enddo
+     enddo
+
+     deallocate(stkx1,stky1,stkx2,stky2,stkx3,stky3)
+
+
+! end of JW
 
   endif
 
