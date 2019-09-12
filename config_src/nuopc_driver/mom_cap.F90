@@ -431,6 +431,7 @@ type (fld_list_type) :: fldsFrOcn(fldsMax)
 integer              :: debug = 0
 integer              :: import_slice = 1
 integer              :: export_slice = 1
+integer              :: internal_slice = 1
 character(len=256)   :: tmpstr
 logical              :: write_diagnostics = .false.
 character(len=32)    :: runtype  !< run type
@@ -979,7 +980,7 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
 
 #ifndef CESMCOUPLED
 ! for runoff in EMC 
-!  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
+  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
 #endif
 
   call ocean_model_init_sfc(ocean_state, ocean_public)
@@ -1931,8 +1932,14 @@ subroutine ModelAdvance(gcomp, rc)
        file=__FILE__)) &
        return  ! bail out
 
-  !call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled) ! for runoff            
-
+#ifndef CESMCOUPLED
+  call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled) ! for runoff 
+           
+  if(write_diagnostics) then
+   call dumpMomInternal(mom_grid_i, internal_slice, "runoff"       ,  Ice_ocean_boundary%rofl_flux)
+   internal_slice = internal_slice + 1
+  end if
+#endif
   !---------------
   ! Update MOM6
   !---------------
@@ -2522,8 +2529,6 @@ subroutine fld_list_add(num, fldlist, stdname, transferOffer, shortname)
   fldlist(num)%transferOffer  = trim(transferOffer)
 
 end subroutine fld_list_add
-
-
 #ifndef CESMCOUPLED
 subroutine shr_file_setLogUnit(nunit)
   integer, intent(in) :: nunit
@@ -2536,20 +2541,60 @@ subroutine shr_file_getLogUnit(nunit)
   ! do nothing for this stub - its just here to replace
   ! having cppdefs in the main program
 end subroutine shr_file_getLogUnit
-#endif
 
-  subroutine ice_ocn_bnd_from_data(x, Time, Time_step_coupled)
+subroutine ice_ocn_bnd_from_data(x, Time, Time_step_coupled)
 ! get forcing data from data_overide
-      type (ice_ocean_boundary_type) :: x
-      type(Time_type), intent(in)    :: Time, Time_step_coupled
+  type (ice_ocean_boundary_type) :: x
+  type(Time_type), intent(in)    :: Time, Time_step_coupled
 
-      type(Time_type)                :: Time_next
-      character(len=*),parameter  :: subname='(mom_cap:ice_ocn_bnd_from_data)'
+  type(Time_type)                :: Time_next
+  character(len=*),parameter  :: subname='(mom_cap:ice_ocn_bnd_from_data)'
 
-      Time_next = Time + Time_step_coupled
-!      call data_override('OCN', 'runoff',  x%runoff  , Time_next)
-      call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next) 
+  Time_next = Time + Time_step_coupled
+! call data_override('OCN', 'runoff',  x%runoff  , Time_next)
+  call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next) 
 
-  end subroutine ice_ocn_bnd_from_data
+end subroutine ice_ocn_bnd_from_data
 
+subroutine dumpMomInternal(grid, slice, stdname, farray)
+
+ type(ESMF_Grid)          :: grid
+ integer, intent(in)      :: slice
+ character(len=*)         :: stdname
+ real(ESMF_KIND_R8), dimension(:,:), target :: farray
+
+ type(ESMF_Field)         :: field
+ real(ESMF_KIND_R8), dimension(:,:), pointer  :: f2d
+ integer                  :: rc
+
+ field = ESMF_FieldCreate(grid, ESMF_TYPEKIND_R8, indexflag=ESMF_INDEX_DELOCAL, &
+                          name=stdname, rc=rc)
+ if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return  ! bail out
+
+ call ESMF_FieldGet(field, farrayPtr=f2d, rc=rc)
+ if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return  ! bail out
+
+ f2d(:,:) = farray(:,:)
+
+ call ESMF_FieldWrite(field, fileName='field_ocn_internal_'//trim(stdname)//'.nc', &
+                      timeslice=slice, rc=rc)
+ if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return  ! bail out
+
+ call ESMF_FieldDestroy(field, rc=rc)
+ if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+   line=__LINE__, &
+   file=__FILE__)) &
+   return  ! bail out
+
+end subroutine dumpMomInternal
+#endif
 end module mom_cap_mod
