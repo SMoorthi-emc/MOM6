@@ -2185,8 +2185,10 @@ contains
 
     if (cesm_coupled) then
        call ocean_model_end(ocean_public, ocean_State, Time, write_restart=.false.)
+#ifndef CMEPS
     else
        call ocean_model_end(ocean_public, ocean_State, Time, write_restart=.true.)
+#endif
     end if
     call field_manager_end()
 
