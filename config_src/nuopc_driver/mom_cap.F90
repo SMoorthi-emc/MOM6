@@ -1420,10 +1420,13 @@ contains
     character(ESMF_MAXSTR)                 :: restartname, cvalue
     character(240)                         :: msgString
     character(len=*),parameter             :: subname='(mom_cap:ModelAdvance)'
+    integer                                :: restart_interval = 0
     !--------------------------------
 
     rc = ESMF_SUCCESS
     if(profile_memory) call ESMF_VMLogMemInfo("Entering MOM Model_ADVANCE: ")
+
+!     write(0,*)' in mom cap Entering MOM Model_ADVANCE'
 
     call shr_file_setLogUnit (logunit)
 
@@ -1511,6 +1514,7 @@ contains
     ! If restart alarm is ringing - write restart file
     !---------------
 
+!     write(0,*)' in mom cap in MOM Model_ADVANCE bef alarm_restart'
     call ESMF_ClockGetAlarm(clock, alarmname='alarm_restart', alarm=alarm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
@@ -1528,6 +1532,7 @@ contains
             line=__LINE__, file=__FILE__)) return
        if (ESMF_LogFoundError(rcToCheck=userRc, msg="Error in method to get restart filename", &
             line=__LINE__, file=__FILE__)) return
+!     write(0,*)' in mom cap existflag=',existflag
        if (existflag) then
           call ESMF_LogWrite("mom_cap: called user GetRestartFileToWrite method", ESMF_LOGMSG_INFO, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -1541,6 +1546,16 @@ contains
           endif
        endif
 
+!     write(0,*)' in mom cap bef get restart_interval'
+       call NUOPC_CompAttributeGet(gcomp, name="restart_interval", value=cvalue, &
+                                isPresent=isPresent, isSet=isSet, rc=rc)
+       restart_interval = ESMF_UtilString2Int(cvalue, specialStringList=(/"unset"/), &
+                                              specialValueList=(/0/), rc=rc)
+!     write(0,*)' in mom cap restart_interval =', restart_interval,' restartname=',trim(restartname)
+
+!      call ESMF_AttributeGet(gcomp, name="restart_interval", value=value, defaultValue="unset", &
+!                             convention="NUOPC", purpose="Instance", rc=rc)
+
        if (len_trim(restartname) == 0) then
           ! none provided, so use a default restart filename
           call ESMF_ClockGetNextTime(clock, MyTime, rc=rc)
@@ -1548,27 +1563,33 @@ contains
           call ESMF_TimeGet (MyTime, yy=year, mm=month, dd=day, &
                              h=hour, m=minute, s=seconds, rc=rc )
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-          write(restartname,'(A,".mom6.r.",I4.4,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2)') &
-               "ocn", year, month, day, hour, minute, seconds
+!         write(restartname,'(A,".mom6.r.",I4.4,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2)') &
+          write(restartname,'(A,".mom6.r.",I4.4,I2.2,I2.2,"-",I2.2,I2.2,I2.2)') &
+                            "ocn", year, month, day, hour, minute, seconds
           call ESMF_LogWrite("mom_cap: Using default restart filename:  "//trim(restartname), ESMF_LOGMSG_INFO, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
        endif
 
        ! TODO: address if this requirement is being met for the DA group
        ! Optionally write restart files when currTime-startTime is integer multiples of restart_interval
-       ! if (restart_interval > 0 ) then
-       !   time_elapsed = currTime - startTime
-       !   call ESMF_TimeIntervalGet(time_elapsed, s_i8=time_elapsed_sec, rc=rc)
-       !   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-       !   n_interval = time_elapsed_sec / restart_interval
-       !   if ((n_interval .gt. 0) .and. (n_interval*restart_interval == time_elapsed_sec)) then
-       !       time_restart_current = esmf2fms_time(currTime)
-       !       timestamp = date_to_string(time_restart_current)
-       !       call ESMF_LogWrite("MOM: Writing restart at "//trim(timestamp), ESMF_LOGMSG_INFO, rc=rc)
-       !       write(*,*) 'calling ocean_model_restart'
-       !       call ocean_model_restart(ocean_state, timestamp)
-       !   endif
-       ! endif
+         if (restart_interval > 0 ) then
+           time_elapsed = currTime - startTime
+           call ESMF_TimeIntervalGet(time_elapsed, s_i8=time_elapsed_sec, rc=rc)
+           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+           n_interval = time_elapsed_sec / restart_interval
+           if ((n_interval > 0) .and. (n_interval*restart_interval == time_elapsed_sec)) then
+               time_restart_current = esmf2fms_time(currTime)
+               timestamp = date_to_string(time_restart_current)
+               call ESMF_LogWrite("MOM: Writing restart at "//trim(timestamp), ESMF_LOGMSG_INFO, rc=rc)
+               call ESMF_TimeGet (MyTime, yy=year, mm=month, dd=day, &
+                                  h=hour, m=minute, s=seconds, rc=rc )
+               if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+               write(restartname,'(A,".mom6.r.",I4.4,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2)') &
+                                  "ocn", year, month, day, hour, minute, seconds
+               write(*,*) 'calling ocean_model_restart'
+               call ocean_model_restart(ocean_state, timestamp, restartname=restartname)
+           endif
+         endif
 
        ! write restart file(s)
        call ocean_model_restart(ocean_state, restartname=restartname)
@@ -1682,6 +1703,7 @@ contains
           restart_option = "none"
        endif
 
+!     write(0,*)' bef AlarmInit restart_option=',trim(restart_option)
        call AlarmInit(mclock,                          &
                       alarm   = restart_alarm,         &
                       option  = trim(restart_option),  &
