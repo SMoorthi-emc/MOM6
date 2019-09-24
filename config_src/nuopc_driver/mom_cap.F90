@@ -2548,5 +2548,3 @@ end subroutine shr_file_getLogUnit
   end subroutine ice_ocn_bnd_from_data
 
 end module mom_cap_mod
-=======
-end module MOM_cap_mod
