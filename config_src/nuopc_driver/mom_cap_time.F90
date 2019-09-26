@@ -1,89 +1,83 @@
-!
-! This was originally share code in CIME, but required CIME as a
-! dependency to build the MOM cap.  The options here for setting
-! a restart alarm are useful for all caps, so a second step is to
-! determine if/how these could be offered more generally in a
-! shared library.  For now we really want the MOM cap to only
-! depend on MOM and ESMF/NUOPC.
-!
+!> This was originally share code in CIME, but required CIME as a
+!! dependency to build the MOM cap.  The options here for setting
+!! a restart alarm are useful for all caps, so a second step is to
+!! determine if/how these could be offered more generally in a
+!! shared library.  For now we really want the MOM cap to only
+!! depend on MOM and ESMF/NUOPC.
 module mom_cap_time
 
-  ! !USES:
-  use ESMF                  , only : ESMF_Time, ESMF_Clock, ESMF_Calendar, ESMF_Alarm
-  use ESMF                  , only : ESMF_TimeGet, ESMF_TimeSet
-  use ESMF                  , only : ESMF_TimeInterval, ESMF_TimeIntervalSet
-  use ESMF                  , only : ESMF_ClockGet, ESMF_AlarmCreate
-  use ESMF                  , only : ESMF_SUCCESS, ESMF_LogWrite, ESMF_LOGMSG_INFO
-  use ESMF                  , only : ESMF_LogSetError, ESMF_LogFoundError, ESMF_LOGERR_PASSTHRU
-  use ESMF                  , only : ESMF_RC_ARG_BAD
-  use ESMF                  , only : operator(<), operator(/=), operator(+), operator(-), operator(*) , operator(>=)
-  use ESMF                  , only : operator(<=), operator(>), operator(==)
+! !USES:
+use ESMF                  , only : ESMF_Time, ESMF_Clock, ESMF_Calendar, ESMF_Alarm
+use ESMF                  , only : ESMF_TimeGet, ESMF_TimeSet
+use ESMF                  , only : ESMF_TimeInterval, ESMF_TimeIntervalSet
+use ESMF                  , only : ESMF_ClockGet, ESMF_AlarmCreate
+use ESMF                  , only : ESMF_SUCCESS, ESMF_LogWrite, ESMF_LOGMSG_INFO
+use ESMF                  , only : ESMF_LogSetError, ESMF_LogFoundError, ESMF_LOGERR_PASSTHRU
+use ESMF                  , only : ESMF_RC_ARG_BAD
+use ESMF                  , only : operator(<), operator(/=), operator(+), operator(-), operator(*) , operator(>=)
+use ESMF                  , only : operator(<=), operator(>), operator(==)
 
-  implicit none
-  private    ! default private
+implicit none; private
 
-  public  :: AlarmInit  ! initialize an alarm
+public  :: AlarmInit  ! initialize an alarm
 
-  private :: TimeInit
-  private :: date2ymd
+private :: TimeInit
+private :: date2ymd
 
-  ! Clock and alarm options
-  character(len=*), private, parameter :: &
-       optNONE           = "none"      , &
-       optNever          = "never"     , &
-       optNSteps         = "nsteps"    , &
-       optNStep          = "nstep"     , &
-       optNSeconds       = "nseconds"  , &
-       optNSecond        = "nsecond"   , &
-       optNMinutes       = "nminutes"  , &
-       optNMinute        = "nminute"   , &
-       optNHours         = "nhours"    , &
-       optNHour          = "nhour"     , &
-       optNDays          = "ndays"     , &
-       optNDay           = "nday"      , &
-       optNMonths        = "nmonths"   , &
-       optNMonth         = "nmonth"    , &
-       optNYears         = "nyears"    , &
-       optNYear          = "nyear"     , &
-       optMonthly        = "monthly"   , &
-       optYearly         = "yearly"    , &
-       optDate           = "date"      , &
-       optIfdays0        = "ifdays0"   , &
-       optGLCCouplingPeriod = "glc_coupling_period"
+! Clock and alarm options
+character(len=*), private, parameter :: &
+     optNONE           = "none"      , &
+     optNever          = "never"     , &
+     optNSteps         = "nsteps"    , &
+     optNStep          = "nstep"     , &
+     optNSeconds       = "nseconds"  , &
+     optNSecond        = "nsecond"   , &
+     optNMinutes       = "nminutes"  , &
+     optNMinute        = "nminute"   , &
+     optNHours         = "nhours"    , &
+     optNHour          = "nhour"     , &
+     optNDays          = "ndays"     , &
+     optNDay           = "nday"      , &
+     optNMonths        = "nmonths"   , &
+     optNMonth         = "nmonth"    , &
+     optNYears         = "nyears"    , &
+     optNYear          = "nyear"     , &
+     optMonthly        = "monthly"   , &
+     optYearly         = "yearly"    , &
+     optDate           = "date"      , &
+     optIfdays0        = "ifdays0"   , &
+     optGLCCouplingPeriod = "glc_coupling_period"
 
-  ! Module data
-  integer, parameter          :: SecPerDay = 86400 ! Seconds per day
-  character(len=*), parameter :: u_FILE_u = &
-       __FILE__
+! Module data
+integer, parameter          :: SecPerDay = 86400 ! Seconds per day
+character(len=*), parameter :: u_FILE_u = &
+     __FILE__
 
-!===============================================================================
 contains
-!===============================================================================
+
+!> Setup an alarm in a clock. The ringtime sent to AlarmCreate
+!! MUST be the next alarm time.  If you send an arbitrary but
+!! proper ringtime from the past and the ring interval, the alarm
+!! will always go off on the next clock advance and this will cause
+!! serious problems. Even if it makes sense to initialize an alarm
+!! with some reference time and the alarm interval, that reference
+!! time has to be advance forward to be >= the current time.
+!! In the logic below  we set an appropriate "NextAlarm" and then
+!! we make sure to advance it properly based on the ring interval.
 
   subroutine AlarmInit( clock, alarm, option, &
                         opt_n, opt_ymd, opt_tod, RefTime, alarmname, rc)
 
-    ! !DESCRIPTION: Setup an alarm in a clock
-    ! Notes: The ringtime sent to AlarmCreate MUST be the next alarm
-    ! time.  If you send an arbitrary but proper ringtime from the
-    ! past and the ring interval, the alarm will always go off on the
-    ! next clock advance and this will cause serious problems.  Even
-    ! if it makes sense to initialize an alarm with some reference
-    ! time and the alarm interval, that reference time has to be
-    ! advance forward to be >= the current time.  In the logic below
-    ! we set an appropriate "NextAlarm" and then we make sure to
-    ! advance it properly based on the ring interval.
-
     ! input/output variables
-    type(ESMF_Clock)            , intent(inout) :: clock     ! clock
-    type(ESMF_Alarm)            , intent(inout) :: alarm     ! alarm
-    character(len=*)            , intent(in)    :: option    ! alarm option
-    integer          , optional , intent(in)    :: opt_n     ! alarm freq
-    integer          , optional , intent(in)    :: opt_ymd   ! alarm ymd
-    integer          , optional , intent(in)    :: opt_tod   ! alarm tod (sec)
-    type(ESMF_Time)  , optional , intent(in)    :: RefTime   ! ref time
-    character(len=*) , optional , intent(in)    :: alarmname ! alarm name
-    integer                     , intent(inout) :: rc        ! Return code
+    type(ESMF_Clock)            , intent(inout) :: clock     !< ESMF clock
+    type(ESMF_Alarm)            , intent(inout) :: alarm     !< ESMF alarm
+    character(len=*)            , intent(in)    :: option    !< alarm option
+    integer          , optional , intent(in)    :: opt_n     !< alarm freq
+    integer          , optional , intent(in)    :: opt_ymd   !< alarm ymd
+    integer          , optional , intent(in)    :: opt_tod   !< alarm tod (sec)
+    type(ESMF_Time)  , optional , intent(in)    :: RefTime   !< ref time
+    character(len=*) , optional , intent(in)    :: alarmname !< alarm name
+    integer                     , intent(inout) :: rc        !< Return code
 
     ! local variables
     type(ESMF_Calendar)     :: cal              ! calendar
@@ -277,22 +271,21 @@ contains
 
   end subroutine AlarmInit
 
-  !===============================================================================
+
+!> Creates the ESMF_Time object corresponding to the given input time,
+!! given in YMD (Year Month Day) and TOD (Time-of-day) format. Sets
+!! the time by an integer as YYYYMMDD and integer seconds in the day.
 
   subroutine TimeInit( Time, ymd, cal, tod, desc, logunit, rc)
 
-    !  Create the ESMF_Time object corresponding to the given input time, given in
-    !  YMD (Year Month Day) and TOD (Time-of-day) format.
-    !  Set the time by an integer as YYYYMMDD and integer seconds in the day
-
     ! input/output parameters:
-    type(ESMF_Time)     , intent(inout)         :: Time ! ESMF time
-    integer             , intent(in)            :: ymd  ! year, month, day YYYYMMDD
-    type(ESMF_Calendar) , intent(in)            :: cal  ! ESMF calendar
-    integer             , intent(in),  optional :: tod  ! time of day in seconds
-    character(len=*)    , intent(in),  optional :: desc ! description of time to set
-    integer             , intent(in),  optional :: logunit
-    integer             , intent(out), optional :: rc
+    type(ESMF_Time)     , intent(inout)         :: Time   !< ESMF time
+    integer             , intent(in)            :: ymd    !< year, month, day YYYYMMDD
+    type(ESMF_Calendar) , intent(in)            :: cal    !< ESMF calendar
+    integer             , intent(in),  optional :: tod    !< time of day in [sec]
+    character(len=*)    , intent(in),  optional :: desc   !< description of time to set
+    integer             , intent(in),  optional :: logunit!< Unit for stdout output
+    integer             , intent(out), optional :: rc     !< Return code
 
     ! local varaibles
     integer                     :: yr, mon, day ! Year, month, day as integers
@@ -322,20 +315,17 @@ contains
     call ESMF_TimeSet( Time, yy=yr, mm=mon, dd=day, s=ltod, calendar=cal, rc=rc )
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-  end subroutine TimeInit
+end subroutine TimeInit
 
-  !===============================================================================
+!> Converts a coded-date (yyyymmdd) into calendar year,month,day.
+subroutine date2ymd (date, year, month, day)
+  integer, intent(in)  :: date             !< coded-date (yyyymmdd)
+  integer, intent(out) :: year,month,day   !< calendar year,month,day
 
-  subroutine date2ymd (date, year, month, day)
-
-    ! input/output variables
-    integer, intent(in)  :: date             ! coded-date (yyyymmdd)
-    integer, intent(out) :: year,month,day   ! calendar year,month,day
-
-    ! local variables
-    integer :: tdate   ! temporary date
-    character(*),parameter :: subName = "(date2ymd)"
-    !-------------------------------------------------------------------------------
+  ! local variables
+  integer :: tdate   ! temporary date
+  character(*),parameter :: subName = "(date2ymd)"
+  !-------------------------------------------------------------------------------
 
     tdate = abs(date)
     year  = int(tdate/10000)
@@ -345,6 +335,6 @@ contains
     month = int( mod(tdate,10000)/  100)
     day   = mod(tdate,  100)
 
-  end subroutine date2ymd
+end subroutine date2ymd
 
 end module

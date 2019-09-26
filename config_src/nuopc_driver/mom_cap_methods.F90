@@ -201,13 +201,16 @@ subroutine mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary,
 !$omp parallel do default(shared) private(i,j)
      do j=jsc,jec
        do i=isc,iec
-         ice_ocean_boundary%rofl_flux (i,j)   = 0._ESMF_KIND_R8 ! liquid runoff
-         ice_ocean_boundary%rofi_flux (i,j)   = 0._ESMF_KIND_R8 ! ice runoff
-         ice_ocean_boundary%runoff (i,j)      = 0._ESMF_KIND_R8 ! total runoff
-         ice_ocean_boundary%runoff_hflx(i,j)  = 0._ESMF_KIND_R8 ! heat content of runoff
-         ice_ocean_boundary%calving(i,j)      = 0._ESMF_KIND_R8 ! calving rate
-         ice_ocean_boundary%calving_hflx(i,j) = 0._ESMF_KIND_R8 ! calving rate heat flux
-         ice_ocean_boundary%mi(i,j)           = 0._ESMF_KIND_R8 ! mass of overlying ice
+         ice_ocean_boundary%rofl_flux (i,j)       = 0._ESMF_KIND_R8 ! liquid runoff
+         ice_ocean_boundary%rofi_flux (i,j)       = 0._ESMF_KIND_R8 ! ice runoff
+         ice_ocean_boundary%runoff (i,j)          = 0._ESMF_KIND_R8 ! total runoff
+         ice_ocean_boundary%runoff_hflx(i,j)      = 0._ESMF_KIND_R8 ! heat content of runoff
+         ice_ocean_boundary%calving(i,j)          = 0._ESMF_KIND_R8 ! calving rate
+         ice_ocean_boundary%calving_hflx(i,j)     = 0._ESMF_KIND_R8 ! calving rate heat flux
+         ice_ocean_boundary%salt_flux(i,j)        = 0._ESMF_KIND_R8 ! salt flux from ice
+         ice_ocean_boundary%seaice_melt(i,j)      = 0._ESMF_KIND_R8
+         ice_ocean_boundary%seaice_melt_heat(i,j) = 0._ESMF_KIND_R8
+         ice_ocean_boundary%mi(i,j)               = 0._ESMF_KIND_R8 ! mass of overlying ice
        enddo
      enddo
      ! liquid runoff
@@ -253,6 +256,7 @@ subroutine mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary,
      !----
      ! salt flux from ice
      !----
+!    ice_ocean_boundary%salt_flux(:,:) = 0._ESMF_KIND_R8
      call state_getimport(importState, 'mean_salt_rate',  &
                           isc, iec, jsc, jec, ice_ocean_boundary%salt_flux,rc=rc)
      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
@@ -260,16 +264,18 @@ subroutine mom_import(ocean_public, ocean_grid, importState, ice_ocean_boundary,
      ! !----
      ! ! snow&ice melt heat flux  (W/m^2)
      ! !----
-     ! call state_getimport(importState, 'seaice_melt_heat',  &
-     !                      isc, iec, jsc, jec, ice_ocean_boundary%seaice_melt_heat,rc=rc)
-     ! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+!    ice_ocean_boundary%seaice_melt_heat(:,:) = 0._ESMF_KIND_R8
+     call state_getimport(importState, 'net_heat_flx_to_ocn',  &
+                          isc, iec, jsc, jec, ice_ocean_boundary%seaice_melt_heat,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-     ! !----
-     ! ! snow&ice melt water flux  (W/m^2)
-     ! !----
-     ! call state_getimport(importState, 'seaice_melt_water',  &
-     !                      isc, iec, jsc, jec, ice_ocean_boundary%seaice_melt_water,rc=rc)
-     ! if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+      ! !----
+      ! ! snow&ice melt water flux  (W/m^2)
+      ! !----
+!     ice_ocean_boundary%seaice_melt(:,:) = 0._ESMF_KIND_R8
+      call state_getimport(importState, 'mean_fresh_water_to_ocean_rate',  &
+                           isc, iec, jsc, jec, ice_ocean_boundary%seaice_melt,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
      !----
      ! mass of overlying ice
@@ -320,13 +326,14 @@ subroutine mom_export(ocean_public, ocean_grid, ocean_state, exportState, clock,
 
   rc = ESMF_SUCCESS
 
-  ! Use Adcroft's rule of reciprocals; it does the right thing here.
   call ESMF_ClockGet( clock, timeStep=timeStep, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
   call ESMF_TimeIntervalGet( timeStep, s=dt_int, rc=rc )
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
+
+  ! Use Adcroft's rule of reciprocals; it does the right thing here.
   if (real(dt_int) > 0.0) then
      inv_dt_int = 1.0 / real(dt_int)
   else
@@ -601,6 +608,7 @@ subroutine State_GetFldPtr_2d(State, fldname, fldptr, rc)
 
   call ESMF_StateGet(State, itemName=trim(fldname), field=lfield, rc=lrc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+
   call ESMF_FieldGet(lfield, farrayPtr=fldptr, rc=lrc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
