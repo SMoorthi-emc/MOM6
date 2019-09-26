@@ -451,6 +451,8 @@ type(ESMF_GeomType_Flag) :: geomtype = ESMF_GEOMTYPE_MESH
 #else
 logical :: cesm_coupled = .false.
 type(ESMF_GeomType_Flag) :: geomtype = ESMF_GEOMTYPE_GRID
+! for internal field dumps
+type(ESMF_Grid), save    :: mom_grid_i
 #endif
 
 contains
@@ -1040,6 +1042,10 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
     file=__FILE__)) &
     return  ! bail out
 
+#ifdef CMEPS
+    call fld_list_add(fldsToOcn_num, fldsToOcn, trim(scalar_field_name), "will_provide")
+    call fld_list_add(fldsFrOcn_num, fldsFrOcn, trim(scalar_field_name), "will_provide")
+#else
   if (cesm_coupled) then
      if (len_trim(scalar_field_name) > 0) then
         call fld_list_add(fldsToOcn_num, fldsToOcn, trim(scalar_field_name), "will_provide")
@@ -1056,7 +1062,7 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
     !call fld_list_add(fldsToOcn_num, fldsToOcn, "mass_of_overlying_sea_ice" , "will provide")
     !call fld_list_add(fldsFrOcn_num, fldsFrOcn, "sea_lev"                   , "will provide")
   endif
-
+#endif
   !--------- import fields -------------
   call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_salt_rate"             , "will provide") ! from ice
   call fld_list_add(fldsToOcn_num, fldsToOcn, "mean_zonal_moment_flx"      , "will provide")
@@ -1439,7 +1445,11 @@ subroutine InitializeRealize(gcomp, importState, exportState, clock, rc)
          line=__LINE__, &
          file=__FILE__)) &
          return
-
+#ifndef CESMCOUPLED
+     ! inside geomtype_grid so cesmcoupled probably not required
+     ! save a copy to dump internal fields
+     mom_grid_i = gridIn
+#endif
 
      call ESMF_GridAddCoord(gridIn, staggerLoc=ESMF_STAGGERLOC_CENTER, rc=rc)
      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1702,13 +1712,13 @@ subroutine DataInitialize(gcomp, rc)
   ocean_state        => ocean_internalstate%ptr%ocean_state_type_ptr
   call get_ocean_grid(ocean_state, ocean_grid)
 
-  if (cesm_coupled) then
+  !if (cesm_coupled) then
      call mom_export(ocean_public, ocean_grid, ocean_state, exportState, clock, rc=rc)
      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
           return  ! bail out
-  endif
+  !endif
 
   call ESMF_StateGet(exportState, itemCount=fieldCount, rc=rc)
   if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1750,8 +1760,13 @@ subroutine DataInitialize(gcomp, rc)
   endif
 
   if(write_diagnostics) then
+#ifdef CMEPS
+    call NUOPC_Write(exportState, fileNamePrefix='field_init_ocn_export_', &
+      overwrite=.true.,timeslice=import_slice, relaxedFlag=.true., rc=rc)
+#else
     call NUOPC_Write(exportState, fileNamePrefix='field_init_ocn_export_', &
       timeslice=import_slice, relaxedFlag=.true., rc=rc)
+#endif
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1935,10 +1950,10 @@ subroutine ModelAdvance(gcomp, rc)
 #ifndef CESMCOUPLED
   call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled) ! for runoff 
            
-  if(write_diagnostics) then
-   call dumpMomInternal(mom_grid_i, internal_slice, "runoff"       ,  Ice_ocean_boundary%rofl_flux)
-   internal_slice = internal_slice + 1
-  end if
+  !if(write_diagnostics) then
+  ! call dumpMomInternal(mom_grid_i, internal_slice, "runoff"       ,  Ice_ocean_boundary%rofl_flux)
+  ! internal_slice = internal_slice + 1
+  !end if
 #endif
   !---------------
   ! Update MOM6
@@ -2073,8 +2088,13 @@ subroutine ModelAdvance(gcomp, rc)
   !---------------
 
   if (write_diagnostics) then
+#ifdef CMEPS
+     call NUOPC_Write(exportState, fileNamePrefix='field_ocn_export_', &
+          timeslice=export_slice, relaxedFlag=.true., overwrite=.true.,rc=rc)
+#else
      call NUOPC_Write(exportState, fileNamePrefix='field_ocn_export_', &
           timeslice=export_slice, relaxedFlag=.true., rc=rc)
+#endif
      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
          line=__LINE__, &
          file=__FILE__)) &
@@ -2296,9 +2316,11 @@ subroutine ocean_model_finalize(gcomp, rc)
 
   if (cesm_coupled) then
      call ocean_model_end(ocean_public, ocean_State, Time, write_restart=.false.)
+#ifdef CMEPS
   else
      call ocean_model_end(ocean_public, ocean_State, Time, write_restart=.true.)
   endif
+#endif
   call field_manager_end()
 
   call fms_io_exit()
@@ -2557,6 +2579,8 @@ subroutine ice_ocn_bnd_from_data(x, Time, Time_step_coupled)
 end subroutine ice_ocn_bnd_from_data
 
 subroutine dumpMomInternal(grid, slice, stdname, farray)
+
+ use ESMF,  only: ESMF_FieldWrite, ESMF_FieldDestroy
 
  type(ESMF_Grid)          :: grid
  integer, intent(in)      :: slice
