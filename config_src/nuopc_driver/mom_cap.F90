@@ -1948,7 +1948,7 @@ subroutine ModelAdvance(gcomp, rc)
        return  ! bail out
 
 #ifndef CESMCOUPLED
-  call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled) ! for runoff 
+  !call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled) ! for runoff 
            
   !if(write_diagnostics) then
   ! call dumpMomInternal(mom_grid_i, internal_slice, "runoff"       ,  Ice_ocean_boundary%rofl_flux)
@@ -2572,9 +2572,9 @@ subroutine ice_ocn_bnd_from_data(x, Time, Time_step_coupled)
   type(Time_type)                :: Time_next
   character(len=*),parameter  :: subname='(mom_cap:ice_ocn_bnd_from_data)'
 
-  Time_next = Time + Time_step_coupled
+!  Time_next = Time + Time_step_coupled
 ! call data_override('OCN', 'runoff',  x%runoff  , Time_next)
-  call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next) 
+!  call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next) 
 
 end subroutine ice_ocn_bnd_from_data
 
