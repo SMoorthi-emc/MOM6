@@ -982,7 +982,7 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
 
 #ifndef CESMCOUPLED
 ! for runoff in EMC 
-  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
+!  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
 #endif
 
   call ocean_model_init_sfc(ocean_state, ocean_public)
