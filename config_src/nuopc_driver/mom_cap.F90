@@ -431,7 +431,6 @@ type (fld_list_type) :: fldsFrOcn(fldsMax)
 integer              :: debug = 0
 integer              :: import_slice = 1
 integer              :: export_slice = 1
-integer              :: internal_slice = 1
 character(len=256)   :: tmpstr
 logical              :: write_diagnostics = .false.
 character(len=32)    :: runtype  !< run type
@@ -453,6 +452,7 @@ logical :: cesm_coupled = .false.
 type(ESMF_GeomType_Flag) :: geomtype = ESMF_GEOMTYPE_GRID
 ! for internal field dumps
 type(ESMF_Grid), save    :: mom_grid_i
+integer                  :: internal_slice = 1
 #endif
 
 contains
@@ -1448,7 +1448,7 @@ subroutine InitializeRealize(gcomp, importState, exportState, clock, rc)
 #ifndef CESMCOUPLED
      ! inside geomtype_grid so cesmcoupled probably not required
      ! save a copy to dump internal fields
-     mom_grid_i = gridIn
+     !mom_grid_i = gridIn
 #endif
 
      call ESMF_GridAddCoord(gridIn, staggerLoc=ESMF_STAGGERLOC_CENTER, rc=rc)
@@ -2573,7 +2573,6 @@ subroutine ice_ocn_bnd_from_data(x, Time, Time_step_coupled)
   character(len=*),parameter  :: subname='(mom_cap:ice_ocn_bnd_from_data)'
 
 !  Time_next = Time + Time_step_coupled
-! call data_override('OCN', 'runoff',  x%runoff  , Time_next)
 !  call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next) 
 
 end subroutine ice_ocn_bnd_from_data
