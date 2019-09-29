@@ -431,7 +431,6 @@ type (fld_list_type) :: fldsFrOcn(fldsMax)
 integer              :: debug = 0
 integer              :: import_slice = 1
 integer              :: export_slice = 1
-integer              :: internal_slice = 1
 character(len=256)   :: tmpstr
 logical              :: write_diagnostics = .false.
 character(len=32)    :: runtype  !< run type
@@ -451,8 +450,6 @@ type(ESMF_GeomType_Flag) :: geomtype = ESMF_GEOMTYPE_MESH
 #else
 logical :: cesm_coupled = .false.
 type(ESMF_GeomType_Flag) :: geomtype = ESMF_GEOMTYPE_GRID
-! for internal field dumps
-type(ESMF_Grid), save    :: mom_grid_i
 #endif
 
 contains
@@ -982,7 +979,7 @@ subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
 
 #ifndef CESMCOUPLED
 ! for runoff in EMC 
-!  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
+  call data_override_init(Ocean_domain_in = Ocean_public%domain) 
 #endif
 
   call ocean_model_init_sfc(ocean_state, ocean_public)
@@ -1445,11 +1442,6 @@ subroutine InitializeRealize(gcomp, importState, exportState, clock, rc)
          line=__LINE__, &
          file=__FILE__)) &
          return
-#ifndef CESMCOUPLED
-     ! inside geomtype_grid so cesmcoupled probably not required
-     ! save a copy to dump internal fields
-     mom_grid_i = gridIn
-#endif
 
      call ESMF_GridAddCoord(gridIn, staggerLoc=ESMF_STAGGERLOC_CENTER, rc=rc)
      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1948,12 +1940,7 @@ subroutine ModelAdvance(gcomp, rc)
        return  ! bail out
 
 #ifndef CESMCOUPLED
-  !call ice_ocn_bnd_from_data(Ice_ocean_boundary, Time, Time_step_coupled) ! for runoff 
-           
-  !if(write_diagnostics) then
-  ! call dumpMomInternal(mom_grid_i, internal_slice, "runoff"       ,  Ice_ocean_boundary%rofl_flux)
-  ! internal_slice = internal_slice + 1
-  !end if
+  call ice_ocn_bnd_from_data(ice_ocean_boundary, Time, Time_step_coupled) ! for runoff 
 #endif
   !---------------
   ! Update MOM6
@@ -2319,8 +2306,8 @@ subroutine ocean_model_finalize(gcomp, rc)
 #ifdef CMEPS
   else
      call ocean_model_end(ocean_public, ocean_State, Time, write_restart=.true.)
-  endif
 #endif
+  endif
   call field_manager_end()
 
   call fms_io_exit()
@@ -2572,53 +2559,14 @@ subroutine ice_ocn_bnd_from_data(x, Time, Time_step_coupled)
   type(Time_type)                :: Time_next
   character(len=*),parameter  :: subname='(mom_cap:ice_ocn_bnd_from_data)'
 
-!  Time_next = Time + Time_step_coupled
+  integer :: rc
+
+  Time_next = Time + Time_step_coupled
 ! call data_override('OCN', 'runoff',  x%runoff  , Time_next)
-!  call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next) 
+  call data_override('OCN', 'runoff',   x%rofl_flux   , Time_next) 
+
+  call ESMF_LogWrite(trim(subname)//": ocn_bnd_from_data", ESMF_LOGMSG_INFO, rc=rc)
 
 end subroutine ice_ocn_bnd_from_data
-
-subroutine dumpMomInternal(grid, slice, stdname, farray)
-
- use ESMF,  only: ESMF_FieldWrite, ESMF_FieldDestroy
-
- type(ESMF_Grid)          :: grid
- integer, intent(in)      :: slice
- character(len=*)         :: stdname
- real(ESMF_KIND_R8), dimension(:,:), target :: farray
-
- type(ESMF_Field)         :: field
- real(ESMF_KIND_R8), dimension(:,:), pointer  :: f2d
- integer                  :: rc
-
- field = ESMF_FieldCreate(grid, ESMF_TYPEKIND_R8, indexflag=ESMF_INDEX_DELOCAL, &
-                          name=stdname, rc=rc)
- if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-   line=__LINE__, &
-   file=__FILE__)) &
-   return  ! bail out
-
- call ESMF_FieldGet(field, farrayPtr=f2d, rc=rc)
- if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-   line=__LINE__, &
-   file=__FILE__)) &
-   return  ! bail out
-
- f2d(:,:) = farray(:,:)
-
- call ESMF_FieldWrite(field, fileName='field_ocn_internal_'//trim(stdname)//'.nc', &
-                      timeslice=slice, rc=rc)
- if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-   line=__LINE__, &
-   file=__FILE__)) &
-   return  ! bail out
-
- call ESMF_FieldDestroy(field, rc=rc)
- if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-   line=__LINE__, &
-   file=__FILE__)) &
-   return  ! bail out
-
-end subroutine dumpMomInternal
 #endif
 end module mom_cap_mod
