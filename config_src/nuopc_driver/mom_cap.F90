@@ -2303,10 +2303,11 @@ subroutine ocean_model_finalize(gcomp, rc)
 
   if (cesm_coupled) then
      call ocean_model_end(ocean_public, ocean_State, Time, write_restart=.false.)
-#ifdef CMEPS
+!fixes double restarts but in CMEPS the last ocean diagnostic file is not written
+!#ifndef CMEPS
   else
      call ocean_model_end(ocean_public, ocean_State, Time, write_restart=.true.)
-#endif
+!#endif
   endif
   call field_manager_end()
 
