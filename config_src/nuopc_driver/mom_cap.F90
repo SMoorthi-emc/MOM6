@@ -757,13 +757,11 @@ contains
 
     ! reset shr logging to my log file
     if (is_root_pe()) then
-      call NUOPC_CompAttributeGet(gcomp, name="diro", value=diro, &
-                                  isPresent=isPresentDiro, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__))  return
+      call NUOPC_CompAttributeGet(gcomp, name="diro", isPresent=isPresentDiro, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
-      call NUOPC_CompAttributeGet(gcomp, name="logfile", value=logfile, &
-                                  isPresent=isPresentLogfile, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__))   return
+      call NUOPC_CompAttributeGet(gcomp, name="logfile", isPresent=isPresentLogfile, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
 
       if (isPresentDiro .and. isPresentLogfile) then
         call NUOPC_CompAttributeGet(gcomp, name="diro", value=diro, rc=rc)

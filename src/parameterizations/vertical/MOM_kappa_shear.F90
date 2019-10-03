@@ -438,19 +438,17 @@ subroutine Calc_kappa_shear_vertex(u_in, v_in, h, T_in, S_in, tv, p_surf, kappa_
     T0xdz, &    ! The initial temperature times dz [degC Z ~> degC m].
     S0xdz       ! The initial salinity times dz [ppt Z ~> ppt m].
   real, dimension(SZK_(GV)+1) :: &
-    kappa, &     ! The shear-driven diapycnal diffusivity at an interface, in
-                 ! units of m2 s-1.
-    tke,   &     ! The Turbulent Kinetic Energy per unit mass at an interface,
-                 ! in units of m2 s-2.
-    kappa_avg, & ! The time-weighted average of kappa, in Z2 s-1.
-    tke_avg      ! The time-weighted average of TKE, in m2 s-2.
-  real :: f2     ! The squared Coriolis parameter of each column, in s-2.
-  real :: surface_pres  ! The top surface pressure, in Pa.
+    kappa, &     ! The shear-driven diapycnal diffusivity at an interface [Z2 s-1 ~> m2 s-1].
+    tke,   &     ! The Turbulent Kinetic Energy per unit mass at an interface [m2 s-2].
+    kappa_avg, & ! The time-weighted average of kappa [Z2 s-1 ~> m2 s-1].
+    tke_avg      ! The time-weighted average of TKE [m2 s-2].
+  real :: f2     ! The squared Coriolis parameter of each column [s-2].
+  real :: surface_pres  ! The top surface pressure [Pa].
 
-  real :: dz_in_lay     ! The running sum of the thickness in a layer, in Z.
-  real :: k0dt          ! The background diffusivity times the timestep, in Z2.
-  real :: dz_massless   ! A layer thickness that is considered massless, in Z.
-  real :: I_hwt         ! The inverse of the masked thickness weights, in H-1.
+  real :: dz_in_lay     ! The running sum of the thickness in a layer [Z ~> m].
+  real :: k0dt          ! The background diffusivity times the timestep [Z2 ~> m2].
+  real :: dz_massless   ! A layer thickness that is considered massless [Z ~> m].
+  real :: I_hwt         ! The inverse of the masked thickness weights [H-1 ~> m-1 or m2 kg-1].
 
   real :: I_Prandtl
   logical :: use_temperature  !  If true, temperature and salinity have been

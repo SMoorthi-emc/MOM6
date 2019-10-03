@@ -1074,6 +1074,9 @@ subroutine get_StokesSL_LiFoxKemper(ustar, hbl, GV, US, UStokes_SL, LA)
       UStokes_sl = 0.0
       LA = 1.e8
     endif
+  else
+    UStokes_sl = 0.0
+    LA = 1.e8
   endif
 
 end subroutine Get_StokesSL_LiFoxKemper
