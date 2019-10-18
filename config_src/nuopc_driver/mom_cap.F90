@@ -1683,10 +1683,10 @@ contains
        endif
 
 !      write(0,*)' in mom cap bef get restart_interval'
-       call NUOPC_CompAttributeGet(gcomp, name="restart_interval", value=cvalue, &
-                                isPresent=isPresent, isSet=isSet, rc=rc)
-       restart_interval = ESMF_UtilString2Int(cvalue, specialStringList=(/"unset"/), &
-                                              specialValueList=(/0/), rc=rc)
+!      call NUOPC_CompAttributeGet(gcomp, name="restart_interval", value=cvalue, &
+!                                 isPresent=isPresent, isSet=isSet, rc=rc)
+!      restart_interval = ESMF_UtilString2Int(cvalue, specialStringList=(/"unset"/), &
+!                                             specialValueList=(/0/), rc=rc)
 !      write(0,*)' in mom cap restart_interval =', restart_interval,' restartname=',trim(restartname)
 
 !      call ESMF_AttributeGet(gcomp, name="restart_interval", value=value, defaultValue="unset", &
@@ -1708,28 +1708,30 @@ contains
 
        ! TODO: address if this requirement is being met for the DA group
        ! Optionally write restart files when currTime-startTime is integer multiples of restart_interval
-       if (restart_interval > 0 ) then
-         time_elapsed = currTime - startTime
-         call ESMF_TimeIntervalGet(time_elapsed, s_i8=time_elapsed_sec, rc=rc)
-         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-         n_interval = time_elapsed_sec / restart_interval
-         if ((n_interval > 0) .and. (n_interval*restart_interval == time_elapsed_sec)) then
-           time_restart_current = esmf2fms_time(currTime)
-           timestamp = date_to_string(time_restart_current)
-           call ESMF_LogWrite("MOM: Writing restart at "//trim(timestamp), ESMF_LOGMSG_INFO, rc=rc)
-           call ESMF_TimeGet (MyTime, yy=year, mm=month, dd=day, &
-                              h=hour, m=minute, s=seconds, rc=rc )
-           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
-           write(restartname,'(A,".mom6.r.",I4.4,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2)') &
-                              "ocn", year, month, day, hour, minute, seconds
-           write(*,*) 'calling ocean_model_restart'
-           call ocean_model_restart(ocean_state, timestamp, restartname=restartname)
-         endif
+!      if (restart_interval > 0 ) then
+!        time_elapsed = currTime - startTime
+!        call ESMF_TimeIntervalGet(time_elapsed, s_i8=time_elapsed_sec, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+!        n_interval = time_elapsed_sec / restart_interval
+!        if ((n_interval > 0) .and. (n_interval*restart_interval == time_elapsed_sec)) then
+!          time_restart_current = esmf2fms_time(currTime)
+!          timestamp = date_to_string(time_restart_current)
+!          call ESMF_LogWrite("MOM: Writing restart at "//trim(timestamp), ESMF_LOGMSG_INFO, rc=rc)
+!          call ESMF_TimeGet (MyTime, yy=year, mm=month, dd=day, &
+!                             h=hour, m=minute, s=seconds, rc=rc )
+!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, line=__LINE__, file=__FILE__)) return
+!          write(restartname,'(A,".mom6.r.",I4.4,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2)') &
+!                             "ocn", year, month, day, hour, minute, seconds
+!          write(0,*) 'calling ocean_model_restart with restartname=',restartname
+!          call ocean_model_restart(ocean_state, restartname=restartname)
+!          call ocean_model_restart(ocean_state, timestamp, restartname=restartname)
+!        endif
 
-       else          ! write the restart files at the end of forecast
+!      else          ! write the restart files at the end of forecast
 
+!        write(0,*) 'calling ocean_model_restart with restartname=',restartname
          call ocean_model_restart(ocean_state, restartname=restartname)
-       endif
+!      endif
 
        if (is_root_pe()) then
           write(logunit,*) subname//' writing restart file ',trim(restartname)
