@@ -866,7 +866,7 @@ subroutine calculate_CVMix_tidal(h, j, G, GV, US, CS, N2_int, Kd_lay, Kv)
       ! summing q_i*TidalConstituent_i over the number of constituents.
       call CVMix_compute_SchmittnerCoeff( nlev                    = G%ke,               &
                                           energy_flux             = tidal_qe_md(:),     &
-                                          rho                     = rho_fw,             &
+!                                         rho                     = rho_fw,             &
                                           SchmittnerCoeff         = Schmittner_coeff,   &
                                           exp_hab_zetar           = exp_hab_zetar,      &
                                           CVmix_tidal_params_user = CS%CVMix_tidal_params)
@@ -880,7 +880,7 @@ subroutine calculate_CVMix_tidal(h, j, G, GV, US, CS, N2_int, Kd_lay, Kv)
                                           Tdiff_out               = Kd_tidal,             &
                                           Nsqr                    = N2_int_i,             &
                                           OceanDepth              = -iFaceHeight(G%ke+1), &
-                                          vert_dep                = vert_dep,             &
+!                                         vert_dep                = vert_dep,             &
                                           nlev                    = G%ke,                 &
                                           max_nlev                = G%ke,                 &
                                           SchmittnerCoeff         = Schmittner_coeff,     &
