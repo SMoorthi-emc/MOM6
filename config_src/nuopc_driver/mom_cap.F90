@@ -242,7 +242,7 @@ subroutine InitializeP0(gcomp, importState, exportState, clock, rc)
   if (ChkErr(rc,__LINE__,u_FILE_u)) return
 
   write_diagnostics = .false.
-  call NUOPC_CompAttributeGet(gcomp, name="DumpFields_OCN", value=value, &
+  call NUOPC_CompAttributeGet(gcomp, name="DumpFields", value=value, &
                               isPresent=isPresent, isSet=isSet, rc=rc)
   if (ChkErr(rc,__LINE__,u_FILE_u)) return
   if (isPresent .and. isSet) write_diagnostics = (trim(value)=="true")
@@ -257,7 +257,7 @@ subroutine InitializeP0(gcomp, importState, exportState, clock, rc)
   call ESMF_LogWrite('MOM_cap:DumpFields = '//trim(logmsg), ESMF_LOGMSG_INFO)
 
   overwrite_timeslice = .false.
-  call NUOPC_CompAttributeGet(gcomp, name="OverwriteSlice_OCN", value=value, &
+  call NUOPC_CompAttributeGet(gcomp, name="OverwriteSlice", value=value, &
                               isPresent=isPresent, isSet=isSet, rc=rc)
   if (ChkErr(rc,__LINE__,u_FILE_u)) return
   if (isPresent .and. isSet) overwrite_timeslice = (trim(value)=="true")
