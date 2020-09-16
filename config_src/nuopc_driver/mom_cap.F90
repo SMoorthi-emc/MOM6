@@ -1599,7 +1599,7 @@ subroutine ModelAdvance(gcomp, rc)
         if (ESMF_AlarmIsRinging(stop_alarm, rc=rc)) then
           write(restartname,'(A)')"MOM.res"
         else
-          write(restartname,'(A,I4.4,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2)') &
+          write(restartname,'(A,".",I4.4,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2,"-",I2.2)') &
                             trim(restart_prefix), year, month, day, hour, minute, seconds
         endif
         call ESMF_LogWrite("MOM_cap: Writing restart :  "//trim(restartname), ESMF_LOGMSG_INFO)
