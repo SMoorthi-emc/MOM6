@@ -303,7 +303,8 @@ subroutine InitializeP0(gcomp, importState, exportState, clock, rc)
                               isPresent=isPresent, isSet=isSet, rc=rc)
   if (ChkErr(rc,__LINE__,u_FILE_u)) return
   if (isPresent .and. isSet) then
-     read(value, '(i)', iostat=iostat) scalar_field_count
+!    read(value, '(i)', iostat=iostat) scalar_field_count
+     read(value, *, iostat=iostat) scalar_field_count
      if (iostat /= 0) then
        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
             msg=subname//": ScalarFieldCount not an integer: "//trim(value), &
@@ -1717,7 +1718,7 @@ subroutine ModelSetRunClock(gcomp, rc)
 
         ! If restart_option is set then must also have set either restart_n or restart_ymd
         call NUOPC_CompAttributeGet(gcomp, name="restart_n", value=cvalue, &
-                isPresent=isPresent, isSet=isSet, rc=rc)
+                                    isPresent=isPresent, isSet=isSet, rc=rc)
         if (ChkErr(rc,__LINE__,u_FILE_u)) return
         if (isPresent .and. isSet) then
            read(cvalue,*) restart_n
@@ -1876,7 +1877,7 @@ subroutine ocean_model_finalize(gcomp, rc)
 end subroutine ocean_model_finalize
 
 
-!> Set scalar data from state for a particula name
+!> Set scalar data from state for a particular name
 subroutine State_SetScalar(value, scalar_id, State, mytask, scalar_name, scalar_count,  rc)
   real(ESMF_KIND_R8),intent(in)     :: value
   integer,           intent(in)     :: scalar_id
