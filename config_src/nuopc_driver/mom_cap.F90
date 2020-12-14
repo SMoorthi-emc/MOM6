@@ -303,10 +303,6 @@ subroutine InitializeP0(gcomp, importState, exportState, clock, rc)
                               isPresent=isPresent, isSet=isSet, rc=rc)
   if (ChkErr(rc,__LINE__,u_FILE_u)) return
   if (isPresent .and. isSet) then
-<<<<<<< HEAD
-!    read(value, '(i)', iostat=iostat) scalar_field_count
-=======
->>>>>>> upstream/dev/emc
      read(value, *, iostat=iostat) scalar_field_count
      if (iostat /= 0) then
        call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
