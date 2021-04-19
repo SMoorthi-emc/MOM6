@@ -137,7 +137,7 @@ logical              :: profile_memory = .true.
 logical              :: grid_attach_area = .false.
 character(len=128)   :: restart_prefix = 'MOM.res'
 logical              :: use_coldstart = .true.
-logical              :: use_mommesh = .false.
+logical              :: use_mommesh = .true.
 character(len=128)   :: scalar_field_name = ''
 integer              :: scalar_field_count = 0
 integer              :: scalar_field_idx_grid_nx = 0
@@ -358,7 +358,7 @@ subroutine InitializeP0(gcomp, importState, exportState, clock, rc)
   write(logmsg,*) use_coldstart
   call ESMF_LogWrite('MOM_cap:use_coldstart = '//trim(logmsg), ESMF_LOGMSG_INFO)
 
-  use_mommesh = .false.
+  use_mommesh = .true.
   call NUOPC_CompAttributeGet(gcomp, name="use_mommesh", value=value, &
        isPresent=isPresent, isSet=isSet, rc=rc)
   if (ChkErr(rc,__LINE__,u_FILE_u)) return
