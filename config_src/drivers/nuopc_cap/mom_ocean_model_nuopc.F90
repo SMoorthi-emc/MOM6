@@ -590,7 +590,7 @@ subroutine update_ocean_model(Ice_ocean_boundary, OS, Ocean_sfc, &
   elseif ((.not.do_thermo) .or. (.not.do_dyn)) then
     ! The call sequence is being orchestrated from outside of update_ocean_model.
     call step_MOM(OS%forces, OS%fluxes, OS%sfc_state, Time1, dt_coupling, OS%MOM_CSp, &
-                  Waves=OS%Waves, do_dynamics=do_thermo, do_thermodynamics=do_dyn, &
+                  Waves=OS%Waves, do_dynamics=do_dyn, do_thermodynamics=do_thermo,    &
                   reset_therm=Ocn_fluxes_used)
  !### What to do with these?   , start_cycle=(n==1), end_cycle=.false., cycle_length=dt_coupling)
 

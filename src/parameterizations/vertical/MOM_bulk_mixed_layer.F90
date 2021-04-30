@@ -445,7 +445,7 @@ subroutine bulkmixedlayer(h_3d, u_3d, v_3d, tv, fluxes, dt, ea, eb, G, GV, US, C
   !$OMP                         RmixConst,TKE_river,Pen_SW_bnd,netMassInOut,NetMassOut,   &
   !$OMP                         Net_heat,Net_salt,uhtot,vhtot,R0_tot,Rcv_tot,dKE_FC,      &
   !$OMP                         Idecay_len_TKE,cMKE,Hsfc,dHsfc,dHD,H_nbr,kU_Star,         &
-  !$OMP                         absf_x_H,ebml,eaml)
+  !$OMP                         absf_x_H,ebml,eaml,Ih)
   !$OMP do
   do j=js,je
     ! Copy the thicknesses and other fields to 2-d arrays.

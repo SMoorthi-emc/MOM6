@@ -1782,7 +1782,7 @@ subroutine set_BBL_TKE(u, v, h, fluxes, visc, G, GV, US, CS, OBC)
 
   cdrag_sqrt = sqrt(CS%cdrag)
 
-  !$OMP parallel default(shared) private(do_i,vhtot,htot,domore,hvel,uhtot,ustar,u2_bbl)
+  !$OMP parallel default(shared) private(do_i,vhtot,htot,domore,has_obc,l_seg,hvel,uhtot,ustar,u2_bbl)
   !$OMP do
   do J=js-1,je
     ! Determine ustar and the square magnitude of the velocity in the
@@ -1819,12 +1819,12 @@ subroutine set_BBL_TKE(u, v, h, fluxes, visc, G, GV, US, CS, OBC)
 
         if ((htot(i) + hvel) >= visc%bbl_thick_v(i,J)) then
           vhtot(i) = vhtot(i) + (visc%bbl_thick_v(i,J) - htot(i))*v(i,J,k)
-          htot(i) = visc%bbl_thick_v(i,J)
-          do_i(i) = .false.
+          htot(i)  = visc%bbl_thick_v(i,J)
+          do_i(i)  = .false.
         else
           vhtot(i) = vhtot(i) + hvel*v(i,J,k)
-          htot(i) = htot(i) + hvel
-          domore = .true.
+          htot(i)  = htot(i) + hvel
+          domore  = .true.
         endif
       endif ; enddo
       if (.not.domore) exit

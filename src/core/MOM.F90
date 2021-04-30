@@ -3149,7 +3149,7 @@ subroutine extract_surface_state(CS, sfc_state_in)
     if (.not.CS%answers_2018) depth_ml = CS%Hmix*GV%Z_to_H
     ! Determine the mean tracer properties of the uppermost depth_ml fluid.
 
-    !$OMP parallel do default(shared) private(depth,dh)
+    !$OMP parallel do default(shared) private(depth,dh,I_depth,missing_depth)
     do j=js,je
       do i=is,ie
         depth(i) = 0.0
@@ -3281,7 +3281,7 @@ subroutine extract_surface_state(CS, sfc_state_in)
     do j=js,je
       do i=is,ie
         depth(i) = 0.0
-        delT(i) = 0.0
+        delT(i)  = 0.0
       enddo
 
       do k=1,nz ; do i=is,ie
@@ -3297,7 +3297,7 @@ subroutine extract_surface_state(CS, sfc_state_in)
         ! p=0 OK, HFrz ~ 10 to 20m
         call calculate_TFreeze(CS%tv%S(i,j,k), 0.0, T_freeze, CS%tv%eqn_of_state)
         depth(i) = depth(i) + dh
-        delT(i) =  delT(i) + dh * (CS%tv%T(i,j,k) - T_freeze)
+        delT(i)  = delT(i)  + dh * (CS%tv%T(i,j,k) - T_freeze)
       enddo ; enddo
 
       do i=is,ie

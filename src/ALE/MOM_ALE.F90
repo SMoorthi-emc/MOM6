@@ -804,7 +804,7 @@ subroutine remap_all_state_vars(CS_remapping, CS_ALE, G, GV, h_old, h_new, Reg, 
   ! Remap tracer
   if (ntr>0) then
     if (show_call_tree) call callTree_waypoint("remapping tracers (remap_all_state_vars)")
-    !$OMP parallel do default(shared) private(h1,h2,u_column,Tr)
+    !$OMP parallel do default(shared) private(h1,h2,u_column,Tr,work_2d)
     do m=1,ntr ! For each tracer
       Tr => Reg%Tr(m)
       do j = G%jsc,G%jec ; do i = G%isc,G%iec ; if (G%mask2dT(i,j)>0.) then

@@ -232,7 +232,7 @@ subroutine step_forward_MEKE(MEKE, h, SN_u, SN_v, visc, dt, G, GV, US, CS, hu, h
     endif
 
     if (CS%MEKE_Cd_scale == 0.0 .and. .not. CS%visc_drag) then
-      !$OMP parallel do default(shared) private(ldamping)
+      !$OMP parallel do default(shared)
       do j=js,je ; do i=is,ie
         drag_rate(i,j) = 0. ; drag_rate_J15(i,j) = 0.
       enddo ; enddo
@@ -356,7 +356,7 @@ subroutine step_forward_MEKE(MEKE, h, SN_u, SN_v, visc, dt, G, GV, US, CS, hu, h
     endif
 
     ! First stage of Strang splitting
-    !$OMP parallel do default(shared)
+    !$OMP parallel do default(shared) private(ldamping)
     do j=js,je ; do i=is,ie
       ldamping = CS%MEKE_damping + drag_rate(i,j) * bottomFac2(i,j)
       if (MEKE%MEKE(i,j) < 0.) ldamping = 0.
@@ -379,7 +379,7 @@ subroutine step_forward_MEKE(MEKE, h, SN_u, SN_v, visc, dt, G, GV, US, CS, hu, h
       do j=js-1,je+1 ; do I=is-2,ie+1
         ! MEKE_uflux is used here as workspace with units of [L2 T-2 ~> m2 s-2].
         MEKE_uflux(I,j) = ((G%dy_Cu(I,j)*G%IdxCu(I,j)) * G%mask2dCu(I,j)) * &
-            (MEKE%MEKE(i+1,j) - MEKE%MEKE(i,j))
+                          (MEKE%MEKE(i+1,j) - MEKE%MEKE(i,j))
       ! This would have units of [R Z L2 T-2 ~> kg s-2]
       ! MEKE_uflux(I,j) = ((G%dy_Cu(I,j)*G%IdxCu(I,j)) * &
       !     ((2.0*mass(i,j)*mass(i+1,j)) / ((mass(i,j)+mass(i+1,j)) + mass_neglect)) ) * &
@@ -389,7 +389,7 @@ subroutine step_forward_MEKE(MEKE, h, SN_u, SN_v, visc, dt, G, GV, US, CS, hu, h
       do J=js-2,je+1 ; do i=is-1,ie+1
         ! MEKE_vflux is used here as workspace with units of [L2 T-2 ~> m2 s-2].
         MEKE_vflux(i,J) = ((G%dx_Cv(i,J)*G%IdyCv(i,J)) * G%mask2dCv(i,J)) * &
-            (MEKE%MEKE(i,j+1) - MEKE%MEKE(i,j))
+                          (MEKE%MEKE(i,j+1) - MEKE%MEKE(i,j))
       ! This would have units of [R Z L2 T-2 ~> kg s-2]
       ! MEKE_vflux(i,J) = ((G%dx_Cv(i,J)*G%IdyCv(i,J)) * &
       !     ((2.0*mass(i,j)*mass(i,j+1)) / ((mass(i,j)+mass(i,j+1)) + mass_neglect)) ) * &
@@ -521,7 +521,7 @@ subroutine step_forward_MEKE(MEKE, h, SN_u, SN_v, visc, dt, G, GV, US, CS, hu, h
             drag_rate(i,j) = (US%L_to_Z*Rho0 * I_mass(i,j)) * sqrt( drag_rate_visc(i,j)**2 + &
                    cdrag2 * ( max(0.0, 2.0*bottomFac2(i,j)*MEKE%MEKE(i,j)) + CS%MEKE_Uscale**2 ) )
           enddo ; enddo
-          !$OMP parallel do default(shared)
+          !$OMP parallel do default(shared) private(ldamping)
           do j=js,je ; do i=is,ie
             ldamping = CS%MEKE_damping + drag_rate(i,j) * bottomFac2(i,j)
             if (MEKE%MEKE(i,j) < 0.) ldamping = 0.
@@ -661,7 +661,7 @@ subroutine MEKE_equilibrium(CS, MEKE, G, GV, US, SN_u, SN_v, drag_rate_visc, I_m
   real :: Ubg2  ! Background (tidal?) velocity squared [L2 T-2 ~> m2 s-2]
   real :: cd2
   real :: drag_rate ! The MEKE spindown timescale due to bottom drag [T-1 ~> s-1].
-  real :: src   ! The sum of MEKE sources [L2 T-3 ~> W kg-1]
+  real :: src       ! The sum of MEKE sources [L2 T-3 ~> W kg-1]
   real :: ldamping  ! The MEKE damping rate [T-1 ~> s-1].
   real :: EKE, EKEmin, EKEmax, EKEerr ! [L2 T-2 ~> m2 s-2]
   real :: resid, ResMin, ResMax ! Residuals [L2 T-3 ~> W kg-1]
@@ -681,7 +681,7 @@ subroutine MEKE_equilibrium(CS, MEKE, G, GV, US, SN_u, SN_v, drag_rate_visc, I_m
   cd2 = CS%cdrag**2
   tolerance = 1.0e-12*US%m_s_to_L_T**2
 
-!$OMP do
+!!$OMP do                    ! cvommented by Moorthi on Apr 21, 2021
   do j=js,je ; do i=is,ie
     ! SN = 0.25*max( (SN_u(I,j) + SN_u(I-1,j)) + (SN_v(i,J) + SN_v(i,J-1)), 0.)
     ! This avoids extremes values in equilibrium solution due to bad values in SN_u, SN_v
@@ -819,7 +819,7 @@ subroutine MEKE_equilibrium_restoring(CS, G, US, SN_u, SN_v)
   if (.not. associated(CS%equilibrium_value)) allocate(CS%equilibrium_value(SZI_(G),SZJ_(G)))
   CS%equilibrium_value(:,:) = 0.0
 
-!$OMP do
+!$OMP parallel do default(shared) private(SN)
   do j=js,je ; do i=is,ie
     ! SN = 0.25*max( (SN_u(I,j) + SN_u(I-1,j)) + (SN_v(i,J) + SN_v(i,J-1)), 0.)
     ! This avoids extremes values in equilibrium solution due to bad values in SN_u, SN_v
@@ -857,7 +857,7 @@ subroutine MEKE_lengthScales(CS, MEKE, G, GV, US, SN_u, SN_v, &
 
   is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec
 
-!$OMP do
+!!$OMP do
   do j=js,je ; do i=is,ie
     if (.not.CS%use_old_lscale) then
       if (CS%aEady > 0.) then

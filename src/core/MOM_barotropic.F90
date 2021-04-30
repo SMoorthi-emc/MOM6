@@ -1218,7 +1218,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, forces, pbce, 
 ! between the accelerations due to the average of the layer equations and the
 ! barotropic calculation.
 
-  !$OMP parallel do default(shared)
+  !$OMP parallel do default(shared) private(Htot_avg)
   do j=js,je ; do I=is-1,ie ; if (G%mask2dCu(I,j) > 0.0) then
     if (CS%nonlin_stress) then
       if (GV%Boussinesq) then
@@ -1244,7 +1244,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, forces, pbce, 
   else
     BT_force_u(I,j) = 0.0
   endif ; enddo ; enddo
-  !$OMP parallel do default(shared)
+  !$OMP parallel do default(shared) private(Htot_avg)
   do J=js-1,je ; do i=is,ie ; if (G%mask2dCv(i,J) > 0.0) then
     if (CS%nonlin_stress) then
       if (GV%Boussinesq) then
@@ -2397,7 +2397,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, forces, pbce, 
   if (apply_OBCs) then
     !!! Not safe for wide halos...
     if (CS%BT_OBC%apply_u_OBCs) then  ! copy back the value for u-points on the boundary.
-      !GOMP parallel do default(shared)
+      !GOMP parallel do default(shared) private(l_seg)
       do j=js,je ; do I=is-1,ie
         l_seg = OBC%segnum_u(I,j)
         if (l_seg == OBC_NONE) cycle
@@ -2411,7 +2411,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, forces, pbce, 
     endif
 
     if (CS%BT_OBC%apply_v_OBCs) then  ! copy back the value for v-points on the boundary.
-      !GOMP parallel do default(shared)
+      !GOMP parallel do default(shared) private(l_seg)
       do J=js-1,je ; do I=is,ie
         l_seg = OBC%segnum_v(i,J)
         if (l_seg == OBC_NONE) cycle
